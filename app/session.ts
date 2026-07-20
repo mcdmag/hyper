@@ -12,6 +12,7 @@ import {cliScriptPath} from './config/paths';
 import {productName, version} from './package.json';
 import {getDecoratedEnv} from './plugins';
 import {getFallBackShellConfig} from './utils/shell-fallback';
+import getWindowsPtyOptions from './utils/windows-pty-options';
 
 const createNodePtyError = () =>
   new Error(
@@ -26,7 +27,7 @@ try {
   throw createNodePtyError();
 }
 
-const useConpty = config.getConfig().useConpty;
+const {useConpty, useConptyDll} = config.getConfig();
 
 // Max duration to batch session data before sending it to the renderer process.
 const BATCH_DURATION_MS = 16;
@@ -151,10 +152,7 @@ export default class Session extends EventEmitter {
       env: getDecoratedEnv(baseEnv)
     };
 
-    // if config do not set the useConpty, it will be judged by the node-pty
-    if (typeof useConpty === 'boolean') {
-      options.useConpty = useConpty;
-    }
+    Object.assign(options, getWindowsPtyOptions(process.platform, useConpty, useConptyDll));
 
     try {
       this.pty = spawn(shell, shellArgs, options);

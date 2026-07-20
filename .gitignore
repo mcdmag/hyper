@@ -21,3 +21,87 @@ plugins
 .vscode/*
 !.vscode/launch.json
 .idea
+
+# cue:managed-ignore
+# Transient Cue runtime files (sessions, state, logs, search cache)
+# Memory (.cue/memory/) is NOT ignored — it is a tracked live doc whose mutations
+# flow through the auto-commit pipeline (cue-memory-auto-commit.ts) so dev never
+# carries raw memory dirty state. The whole .cue/search/ dir (incl. index.yml) IS
+# ignored — index.yml is regenerated each boot with machine-specific paths.
+# Connected memory DB is gitignored (binary — re-derivable from JSONL evidence sidecar)
+.cue/states/
+.cue/ports/
+.cue/sessions/
+.cue/logs/
+.cue/ralph-status/
+.cue/search/
+.cue/state.json
+.cue/port
+.cue/ralph-loop-status.md
+.cue/ralph-recovery.json
+.cue/watchdog-prompt.txt
+.cue/watchdog-prompt.txt.tmp
+.cue/watchdog-trigger
+.cue/watchdog-trigger.tmp
+.cue/*.pid
+.cue/**/*.pid
+.cue/soul-meta.json
+.cue/engagement/
+.cue/insights-evidence-*.jsonl
+.cue/temple/temple-brain.db
+.cue/temple/temple-brain.db-wal
+.cue/temple/temple-brain.db-shm
+.cue/temple/chambers.db
+.cue/temple/chambers.db-wal
+.cue/temple/chambers.db-shm
+.cue/memory/.backup-pre-090/
+.cue/memory/.archive/
+.cue/memory/file-maps/
+.cue/file-maps.db
+.cue/file-maps.db-wal
+.cue/file-maps.db-shm
+.cue/file-maps-view/
+.cue/file-map-queue.json
+.cue/insights.db
+.cue/insights.db-wal
+.cue/insights.db-shm
+.cue/audit.db
+.cue/audit.db-wal
+.cue/audit.db-shm
+.cue/traces/
+.cue/skill-audit.jsonl
+.cue/ritual-state.json
+.cue/identity-reviews/
+.cue/spec-write-auth.json
+plans/**/warnings.md
+**/.baseline
+skill-events.jsonl
+coverage/
+.cue/tmp/
+.cue/dirty-events.jsonl
+graphify-out/
+.cue/experiment-worktrees/
+.cue/features.json.bak
+.cue/.pre-global-backup/
+.cue/main-repo-branch.json
+.cue/remote-sessions.json
+.cue/subagent-gate.json
+.cue/socratic-cache/
+.cue/cache/
+.cue/guardian-signal-*
+.cue/guardian-counter-*
+.agents/
+.cue/.mcp-http-token
+.cue/harness/*.jsonl
+.cue/runtime/
+.cue/telemetry/
+.cue/tool-results/
+.cue/soul/
+.cue/architecture/
+.cue/feedback/
+.cue/bash-events.jsonl
+.cue/codex-tool-events.jsonl
+.cue/worktrees/
+
+# Plan 1404: the committed workspace identity anchor is force-tracked.
+!.cue/workspace-id

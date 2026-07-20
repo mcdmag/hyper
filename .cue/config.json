@@ -1,0 +1,331 @@
+{
+  "fileMap": {
+    "codeExtensions": []
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllow": true,
+    "additionalAllowWrite": [],
+    "additionalAllowedDomains": [],
+    "excludedCommands": [
+      "docker"
+    ],
+    "strictMode": false
+  },
+  "autoCommit": true,
+  "autoAdvance": false,
+  "autoPush": true,
+  "maxRetries": 3,
+  "maxTransientRetries": 5,
+  "ralphMaxIterations": 25,
+  "maxParallelAgents": 3,
+  "port": 18300,
+  "gitDryRun": false,
+  "rebaseBeforeCommit": false,
+  "debugLog": false,
+  "memoryTrace": false,
+  "repeatReadGuard": {
+    "mode": "warn"
+  },
+  "fileMapEstimatedTokens": {
+    "enabled": true
+  },
+  "mainRepoDefaultBranch": "main",
+  "mainRepoWorkingBranch": "dev",
+  "git": {
+    "remoteSyncBranch": "",
+    "syncMainAfterMerge": false,
+    "devSyncStrategy": "merge-commit"
+  },
+  "worktree": {
+    "enabled": true,
+    "onComplete": "push-and-pr",
+    "autoMergePr": true
+  },
+  "proofGate": {
+    "enabled": true,
+    "requireE2E": true,
+    "requireVisual": true,
+    "deferWhenPlaywrightMissing": true
+  },
+  "review": {
+    "enabled": true,
+    "path": "auto",
+    "scope": [
+      "prompt",
+      "tool"
+    ],
+    "budgetMs": 5000,
+    "defaultModel": "sonnet",
+    "advisorModel": "sonnet",
+    "policyModel": "sonnet",
+    "parallelTimeoutMs": 5000,
+    "dialogicTimeoutMs": 120000,
+    "mergeVerifyTimeoutMs": 120000,
+    "autoReviewOnSpecCreate": true,
+    "defaultPasses": 2,
+    "mandatoryFloor": 1,
+    "model": "opus",
+    "autoPromoteToMain": true,
+    "postCommentsOnPR": true
+  },
+  "traceEnabled": true,
+  "activeVoiceEnabled": true,
+  "autoMemoryContext": true,
+  "reminders": {
+    "freshnessDays": 90,
+    "sideEffectTimeoutMs": 5000
+  },
+  "memory": {
+    "autoPrToMain": true,
+    "autoPrBase": "working",
+    "autoCommit": true
+  },
+  "artifacts": {
+    "autoCommit": true
+  },
+  "neuralMemory": {
+    "enabled": true,
+    "signalEnabled": true,
+    "spreadingActivation": true,
+    "decayEnabled": true,
+    "typedEdges": true,
+    "maxHops": 2,
+    "tripletScoring": true,
+    "queryDecomposition": true,
+    "multiCollectionSearch": true,
+    "relevanceFloor": 0.3,
+    "injectionTokenBudget": 2500,
+    "citationCooldownMs": 1800000,
+    "crossSessionRequired": 2,
+    "hebbianSingleSessionCap": 0.6,
+    "decayOnNeglect": true,
+    "offlineDecayEnabled": true,
+    "offlineDecayIntervalMs": 86400000,
+    "offlineDecayFactor": 0.05,
+    "citationPrimaryWeight": 1,
+    "citationIncidentalWeight": 0.3,
+    "citationDetectionModel": "claude-haiku-4-5-20251001",
+    "creditAssignmentModel": "claude-haiku-4-5-20251001",
+    "haikuMaxCallsPerSession": 50,
+    "hebbianOnInjection": true,
+    "hebbianOnCitation": true,
+    "hebbianOnGateCitation": true,
+    "hebbianOnSessionOutcome": true
+  },
+  "responseGate": true,
+  "guard": {
+    "mainRepoBranchWrite": {
+      "enabled": true,
+      "overrideMode": "session",
+      "overrideTtlMinutes": 5
+    }
+  },
+  "memorySaveGuard": {
+    "enabled": true,
+    "signalEnabled": true
+  },
+  "deepModuleGuard": {
+    "enabled": true,
+    "detectionMode": "hybrid",
+    "severityFloor": "BLOCK",
+    "minLinesChanged": 15,
+    "minNewExports": 1,
+    "exemptPaths": [
+      "tests/**",
+      "docs/**",
+      "plans/**"
+    ],
+    "lightweightFileThreshold": 2,
+    "lightweightLocThreshold": 100,
+    "strictInterfaceMatch": true,
+    "crossModuleInternalImports": true,
+    "importCycles": true,
+    "filesTouchedMatchesDiff": true
+  },
+  "policy": {
+    "blockReservedWorktreeBranchNames": true,
+    "requireWorktreeForPlanTools": true
+  },
+  "sessionHistory": {
+    "enabled": true
+  },
+  "sessionSearch": {
+    "enabled": true
+  },
+  "userModel": {
+    "enabled": false
+  },
+  "insightsPipeline": {
+    "enabled": true
+  },
+  "skills": {
+    "autoInject": true,
+    "threshold": 0.7,
+    "blocklist": []
+  },
+  "skillSelfImprovementEnabled": false,
+  "skillMemoryBridgeEnabled": true,
+  "driftCeilingEnabled": true,
+  "automation": {
+    "autoMergePRs": true,
+    "autoFastForwardWorkingBranch": false,
+    "deleteFeatureBranchAfterMerge": true
+  },
+  "brainstorm": {
+    "model": "opus"
+  },
+  "research": {
+    "model": "opus"
+  },
+  "liveLecture": {
+    "appspokenBaseUrl": ""
+  },
+  "monitor": {
+    "stallSeconds": 300,
+    "hardStallSeconds": 900,
+    "taskOvertimeSeconds": 1800,
+    "monitorIntervalMs": 10000
+  },
+  "engagement": {
+    "enabled": true,
+    "celebrations": true,
+    "streakDisplay": true,
+    "velocityDisplay": true
+  },
+  "feedback": {
+    "endpoint": "",
+    "pipelineWebhookUrl": "",
+    "localPath": ""
+  },
+  "safeStart": {
+    "enabled": true,
+    "approvalGate": true,
+    "autoApproveAfter": 5
+  },
+  "harness": {
+    "enabled": true,
+    "checkDepth": "adaptive",
+    "retryLimit": 2,
+    "adversarialProbes": true,
+    "contractTimeoutMs": 30000
+  },
+  "contextBackend": "auto",
+  "embedModel": "qwen3-embedding-0.6B",
+  "sidecarIdleMinutes": 10,
+  "auditSearch": {
+    "enabled": true
+  },
+  "symbolIndex": {
+    "enabled": true
+  },
+  "reindex": {
+    "steps": {
+      "qmd": true,
+      "symbol": true,
+      "fileMap": true,
+      "neural": true,
+      "graphify": true
+    }
+  },
+  "find": {
+    "memoryActivationLimit": 4
+  },
+  "graphify": {
+    "broker": {
+      "enabled": true,
+      "maxQueue": 24,
+      "lru": 3,
+      "idleMs": 300000
+    }
+  },
+  "autoCompact": {
+    "enabled": true,
+    "threshold": 50,
+    "maxTokens": 300000,
+    "cooldownMs": 300000
+  },
+  "compactionPriorityEnabled": true,
+  "qmd": {
+    "enabled": true,
+    "autoEmbed": true,
+    "autoVacuum": true,
+    "ftsContentless": false,
+    "vectorQuantization": "none",
+    "specScope": "all",
+    "idleUnloadMs": 300000,
+    "dataDir": ""
+  },
+  "statusLine": {
+    "showSpecLabel": true
+  },
+  "stopHook": {
+    "nextTaskInjection": true
+  },
+  "subAgentRouting": {
+    "enabled": true
+  },
+  "trajectoryDistillation": {
+    "enabled": true
+  },
+  "stakesDetection": {
+    "enabled": true,
+    "tiebreakerEnabled": true,
+    "tiebreakerModel": "haiku",
+    "tiebreakerCacheSize": 200,
+    "tiebreakerMaxAgeMs": 86400000,
+    "ambiguityKeywordRange": [
+      0,
+      2
+    ],
+    "ambiguityMinPromptLength": 40,
+    "negationEnabled": true,
+    "negationWindow": 3,
+    "weeklyRebuildEnabled": true,
+    "verdictLogEnabled": true
+  },
+  "advisorObservation": {
+    "enabled": true,
+    "model": "claude-haiku-4-5-20251001",
+    "maxCallsPerSession": 50,
+    "similarityThreshold": 0.65,
+    "strengthenRetrievalBump": 1,
+    "strengthenSynapseBump": 0.05,
+    "saveMinConfidence": 0.7,
+    "dedupeWithAdvisorSearch": true
+  },
+  "thinkHarder": {
+    "rounds": 3,
+    "critic": "soul-proxy"
+  },
+  "planCreate": {
+    "thinkHarder": 1,
+    "socratic": true
+  },
+  "plan": {
+    "restate": {
+      "alwaysOn": true
+    }
+  },
+  "appTemplates": {
+    "suggestEnabled": true,
+    "suggestThreshold": 0.75,
+    "suggestSpreadGuard": 0.08
+  },
+  "display": {
+    "verbosity": "compact"
+  },
+  "telemetry": {
+    "memorySamplerMs": 30000
+  },
+  "gate": {
+    "rotatePolicy": "reuse",
+    "rotateAfterUses": 25,
+    "maxChildren": 4
+  },
+  "holies": {
+    "rotatePolicy": "reuse",
+    "rotateAfterUses": 5,
+    "idleMs": 300000
+  }
+}

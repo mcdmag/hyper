@@ -35,6 +35,7 @@ import * as AppMenu from './menus/menu';
 import * as plugins from './plugins';
 import {newWindow} from './ui/window';
 import {installCLI} from './utils/cli-install';
+import confirmWindowClose from './utils/confirm-window-close';
 import * as windowUtils from './utils/window-utils';
 
 const windowSet = new Set<BrowserWindow>([]);
@@ -75,7 +76,7 @@ const url = `file://${resolve(isDev ? __dirname : app.getAppPath(), 'index.html'
 console.log('electron will open', url);
 
 async function installDevExtensions(isDev_: boolean) {
-  if (!isDev_) {
+  if (!isDev_ || process.env.HYPER_SKIP_DEV_EXTENSIONS === '1') {
     return [];
   }
   const {default: installer, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS} = await import('electron-devtools-installer');
@@ -144,7 +145,11 @@ app.on('ready', () =>
         void hwin.loadURL(url);
 
         // the window can be closed by the browser process itself
-        hwin.on('close', () => {
+        hwin.on('close', (event) => {
+          if (!confirmWindowClose(hwin)) {
+            event.preventDefault();
+            return;
+          }
           hwin.clean();
           windowSet.delete(hwin);
         });

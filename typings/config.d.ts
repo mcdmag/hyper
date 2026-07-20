@@ -31,6 +31,11 @@ type rootConfigOptions = {
   disableAutoUpdates: boolean;
   /** choose either `'stable'` for receiving highly polished, or `'canary'` for less polished but more frequent updates */
   updateChannel: 'stable' | 'canary';
+  /**
+   * If `true` (default), use the modern ConPTY bundled with node-pty. Set this
+   * to `false` to use the version included with Windows instead.
+   */
+  useConptyDll?: boolean;
   useConpty?: boolean;
 };
 

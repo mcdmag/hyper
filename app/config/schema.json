@@ -342,6 +342,10 @@
                         },
                         "useConpty": {
                             "type": "boolean"
+                        },
+                        "useConptyDll": {
+                            "description": "If `true` (default), use the modern ConPTY bundled with node-pty. Set this\nto `false` to use the version included with Windows instead.",
+                            "type": "boolean"
                         }
                     },
                     "required": [

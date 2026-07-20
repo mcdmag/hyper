@@ -76,7 +76,7 @@ const url = `file://${resolve(isDev ? __dirname : app.getAppPath(), 'index.html'
 console.log('electron will open', url);
 
 async function installDevExtensions(isDev_: boolean) {
-  if (!isDev_) {
+  if (!isDev_ || process.env.HYPER_SKIP_DEV_EXTENSIONS === '1') {
     return [];
   }
   const {default: installer, REACT_DEVELOPER_TOOLS, REDUX_DEVTOOLS} = await import('electron-devtools-installer');

@@ -10,9 +10,9 @@ Find every place users and maintainers need to understand the feature, then docu
 - [ ] Re-scan README.md, PLUGINS.md, config examples/schema, contribution/test guidance, release/changelog conventions, and packaging docs after implementation; record applicable/not-applicable results.
 - [ ] Add docs/natural-language-interface.md covering shell-first behavior, exact config defaults, PowerShell setup, support matrix, privacy, sign-in/logout, Codex path, options/edit/approval, errors, and troubleshooting.
 - [ ] Document that valid nonzero commands never trigger, cmd.exe/WSL/arbitrary shells fail closed, and no output regex fallback exists.
-- [ ] Document app-server isolation, keyring-only credentials, no token handling/tools/file reads, threat-model exclusions, diagnostics redaction, and logout semantics.
+- [ ] Document app-server isolation, keyring-only credentials, no token handling/tools/file reads, child-env allowlist, threat-model exclusions, diagnostics redaction, and that credentials persist until explicit Logout even across disable/downgrade/revert.
 - [ ] Add developer protocol diagrams, exact test commands, fake provider usage, shell-adapter contract, and protocol-version update steps.
-- [ ] Include the rollback kill switch and PR base requirement: target dev explicitly, not canary.
+- [ ] Include the rollback kill switch, Logout-before-downgrade guidance, orphan transient-hook cleanup, and PR base requirement: target dev explicitly, not canary.
 
 ## Acceptance
 

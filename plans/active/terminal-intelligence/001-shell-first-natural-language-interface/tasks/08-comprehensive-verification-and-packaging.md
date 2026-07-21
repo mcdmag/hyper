@@ -7,7 +7,7 @@ Exercise the feature across unit, PTY, renderer, and packaged-app seams so the s
 
 ## Work
 
-- [ ] Complete unit coverage for configuration, shell detection, OSC parser, controller, provider/auth, plan/privacy/risk, reducer, and exact-once execution.
+- [ ] Complete unit coverage for configuration, shell detection, OSC parser, controller, provider/auth, plan/privacy/risk, reducer, and atomic approval plus single-write-attempt behavior.
 - [ ] Add test/unit/nli-integration.test.ts with fake PTY fixtures proving visible-error ordering, anti-spoofing, pane isolation, and zero provider calls for valid/nonzero commands.
 - [ ] Keep PowerShell 5.1/7 node-pty seams executable-availability-gated and deterministic.
 - [ ] Extend test/index.ts with a deterministic fake provider for privacy/auth, alternatives, edit/reapproval, high risk, cancel/retry, malformed/offline, stale cwd, focus, and execution.

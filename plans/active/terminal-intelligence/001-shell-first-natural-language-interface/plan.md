@@ -14,7 +14,7 @@ The first supported automatic adapter is interactive PowerShell 5.1 and PowerShe
 4. Hyper renders the ordinary shell error first, correlates one semantic failure to one session attempt, then lazily asks Codex for bounded structured command options.
 5. First use discloses the exact context shared and offers ChatGPT/Codex browser sign-in.
 6. The user selects, edits, rejects, or approves exact command text. Opening the panel never executes anything.
-7. Main process retains the immutable plan. Approval references opaque IDs, is invalid after edits/session/cwd changes, and writes the accepted text exactly once through the original Session/node-pty boundary.
+7. Main process retains the immutable plan. Approval references opaque IDs, is invalid after edits/session/cwd changes, and permits one consumed, non-retried Session.write attempt through the original node-pty boundary.
 8. A generated command cannot recursively invoke NLI. Provider/auth/offline errors never block the shell.
 
 ## Scope
@@ -46,7 +46,7 @@ The implementation extends existing seams instead of adding a second terminal pa
 - A shell adapter augments safe interactive PowerShell startup arguments and writes a generated hook script under Hyper userData.
 - A bounded streaming parser strips only valid nonce-tagged private OSC frames from PTY output and emits semantic events; malformed or wrong-nonce bytes pass through unchanged.
 - app/ui/window.ts wires session events to a main-only NliService and typed renderer RPC.
-- NliService owns attempt cancellation, privacy/auth state, the immutable plan store, digests, local risk classification, approval validation, and exact-once PTY writes.
+- NliService owns attempt cancellation, privacy/auth state, the immutable plan store, digests, local risk classification, approval validation, and single-attempt PTY writes.
 - CodexAppServerProvider is a proposal-only adapter. It starts lazily with shell:false, windowsHide:true, piped stdio, sanitized environment, an empty app-controlled cwd, and a Hyper-specific CODEX_HOME. Every server tool or approval request is denied and aborts interpretation.
 - Renderer Redux state is keyed by session UID. NliPanel displays plain text safely and returns decisions or edits; it never becomes the source of truth for approved command bytes.
 
@@ -67,7 +67,7 @@ The implementation extends existing seams instead of adding a second terminal pa
 5. Implement the hardened Codex app-server provider and OAuth states.
 6. Implement schema validation, local risk classification, immutable approvals, and privacy filtering.
 7. Build the accessible renderer workflow from the approved mockups.
-8. Route approved text exactly once through Session.write with stale/recursion guards.
+8. Atomically consume approval and make one non-retried Session.write attempt with stale/recursion guards.
 9. Complete unit, seam, E2E, packaging, and latency verification.
 10. Discover and update all user/developer documentation.
 11. Run final integration verification and prepare the dev-targeted delivery.
@@ -78,10 +78,10 @@ The feature defaults off. When enabled, startup instrumentation is attempted onl
 
 ## State contracts
 
-- Shell event: sessionUid, eventId, reason=command-not-found, submittedLine, shellFamily, shellVersion, nonce proof. The parser removes framing, preserves visible bytes, and app/session.ts flushes the visible PowerShell error before app/ui/window.ts emits the semantic event.
+- Shell event: windowId, sessionUid, PowerShell HistoryId when available, callbackId, reason=command-not-found, submittedLine, shellFamily, shellVersion, nonce proof. The marker arrives before PowerShell renders its ordinary error. Session therefore holds the semantic event, writes subsequent visible bytes to DataBatcher, synchronously flushes that batch through the existing session-data listener, and only then emits the semantic event. If no visible bytes follow within 250 ms, it cancels the pending event rather than showing assistance before the promised shell error.
 - Interpretation context: attemptId plus the shell event, OS, and either a disclosed cwd or an omitted cwd. Scrollback, history, environment, files, clipboard, and credentials never pass this boundary.
 - Display proposal: display-safe summary/options/risks plus opaque planId and optionId. Authoritative command bytes and digests remain main-only.
-- Approval request: sessionUid, attemptId, planId, optionId, editRevision, and highRiskConfirmation; no command text. Main atomically consumes the matching immutable approval before one Session.write.
+- Approval request: windowId, renderer/webContents identity, sessionUid, attemptId, planId, optionId, editRevision, and highRiskConfirmation; no command text. Main revalidates every field, atomically consumes the matching immutable approval, then performs one synchronous Session.write call with no intervening await. It never retries a consumed plan automatically; this is a single-write-attempt guarantee, not a claim that the shell executed after an OS/PTY failure.
 - Legal lifecycle: idle -> detected -> privacy/auth-required -> interpreting -> review -> approving -> sent, with cancel/error/stale terminal branches. A newer attempt, edit, cwd/shell change, session close, replay, or consumed approval makes the previous plan stale.
 
 ## Configuration and migration
@@ -98,13 +98,17 @@ There is no HTTP API change: all new contracts are local typed Electron RPC. The
 
 ## Idempotency and performance budget
 
-PowerShell hook installation is repeat-safe: one collision-safe artifact and delegate per session, one event per eventId, duplicate semantic events are ignored, and cleanup/fallback re-init may run repeatedly. Synchronous integration setup, excluding node-pty process spawn and filesystem materialization, must add no more than 5 ms p95 in test/unit/nli-performance.test.ts. The input hot path must construct/call zero providers and perform zero awaited NLI work before pty.write; test/unit/nli-performance.test.ts compares 10,000 disabled/unsupported/enabled-valid dispatches and allows no more than 1 ms p95 incremental per dispatch.
+PowerShell hook installation is repeat-safe: one collision-safe artifact and delegate per session, cleanup/fallback re-init may run repeatedly, and the wrapper captures the post-profile CommandNotFoundAction delegate, invokes it first, and emits only if neither Command nor CommandScriptBlock is resolved. A handler throw is preserved as normal shell behavior and does not invoke NLI. Runtime replacement of the wrapper transfers control to the user and makes automatic NLI fail closed rather than fighting the replacement.
+
+Multiple lookup callbacks are coalesced by window/session plus PowerShell HistoryId and exact submitted line. When HistoryId is unavailable, use a bounded 100 ms main-process coalescing window; callbackId only prevents transport replay and is not the attempt identity. A later HistoryId or a completed prompt/error lifecycle allows an intentional repeat of the same line.
+
+Synchronous integration setup, excluding node-pty process spawn and filesystem materialization, must add no more than 5 ms p95 in test/unit/nli-performance.test.ts. The input hot path must construct/call zero providers and perform zero awaited NLI work before pty.write; test/unit/nli-performance.test.ts compares 10,000 disabled/unsupported/enabled-valid dispatches and allows no more than 1 ms p95 incremental per dispatch.
 
 Provider interpretation is bounded by requestTimeoutMs and cancellation; OSC parsing is bounded by maxInputChars and returns malformed/oversized data to the visible stream without starting NLI.
 
 ## Rollback and local dry run
 
-The immediate kill switch is naturalLanguageInterface.enabled=false, which leaves shell args, PTY bytes, and provider lifecycle unchanged. A code rollback is git revert of the feature merge commit; because config is additive and default-off, old installs ignore the key without a down migration. Provider disposal and repeat-safe hook cleanup remove runtime artifacts.
+The immediate kill switch is naturalLanguageInterface.enabled=false, which disposes provider children and transient hook artifacts while leaving future shell args and PTY bytes unchanged. ChatGPT credentials in the OS keyring intentionally persist until the user invokes explicit Logout; disabling, downgrading, or git-reverting cannot promise credential deletion. Documentation requires Logout before downgrade/revert when credential removal is desired and describes safe orphan-hook cleanup. Because config is additive and default-off, old installs ignore the key without a down migration.
 
 No CI/deploy workflow changes are required. The release dry run is local and non-publishing: pnpm run build, then pnpm exec electron-builder --win dir --x64 --publish never, then run the PowerShell packaged smoke against dist/win-unpacked/Hyper.exe and verify the Codex child is hidden and terminates with Hyper.
 
@@ -130,7 +134,7 @@ Final acceptance requires evidence that:
 - cmd.exe and other unsupported shells are unchanged and do not heuristically trigger.
 - Sign-in, cancel, token refresh behavior, logout, offline, timeout, malformed output, incompatible protocol, and app-server crash are handled.
 - No tokens, scrollback, history, environment, file content, or command plans leak to logs, Redux beyond display data, electron-store, crash payloads, or spawned terminal environments.
-- Selecting, editing, rejecting, approving, stale invalidation, high-risk confirmation, and exact-once execution work by keyboard and screen reader.
+- Selecting, editing, rejecting, approving, stale invalidation, high-risk confirmation, and the single-write-attempt contract work by keyboard and screen reader.
 - The packaged Windows app spawns Codex with no console window and cleans it up on exit.
 
 ## Verification

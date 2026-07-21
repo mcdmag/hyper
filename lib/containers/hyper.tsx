@@ -41,6 +41,13 @@ const Hyper = forwardRef<HTMLDivElement, HyperProps>((props, ref) => {
     }
   };
 
+  const handleResetInputModes = () => {
+    const term = terms.current?.getActiveTerm();
+    if (term) {
+      term.resetInputModes();
+    }
+  };
+
   const attachKeyListeners = async () => {
     if (!mousetrap.current) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -72,6 +79,7 @@ const Hyper = forwardRef<HTMLDivElement, HyperProps>((props, ref) => {
   useEffect(() => {
     void attachKeyListeners();
     window.rpc.on('term selectAll', handleSelectAll);
+    window.rpc.on('term resetInputModes', handleResetInputModes);
   }, []);
 
   const onTermsRef = (_terms: Terms | null) => {

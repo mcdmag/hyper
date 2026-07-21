@@ -50,6 +50,7 @@
   "editor:deleteBeginningLine": "command+backspace",
   "editor:deleteEndLine": "command+delete",
   "editor:clearBuffer": "command+k",
+  "editor:resetInputModes": "command+shift+k",
   "editor:break": "ctrl+c",
   "plugins:update": "command+shift+u"
 }

@@ -36,6 +36,9 @@ const commands: Record<string, (focusedWindow?: BrowserWindow) => void> = {
   'editor:selectAll': (focusedWindow) => {
     focusedWindow?.rpc.emit('term selectAll');
   },
+  'editor:resetInputModes': (focusedWindow) => {
+    focusedWindow?.rpc.emit('term resetInputModes');
+  },
   'plugins:update': () => {
     updatePlugins();
   },

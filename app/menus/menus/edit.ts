@@ -121,6 +121,13 @@ const editMenu = (
       }
     },
     {
+      label: 'Reset Input Modes',
+      accelerator: commandKeys['editor:resetInputModes'],
+      click(item, focusedWindow) {
+        execCommand('editor:resetInputModes', focusedWindow);
+      }
+    },
+    {
       label: 'Search',
       accelerator: commandKeys['editor:search'],
       click(item, focusedWindow) {

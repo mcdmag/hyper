@@ -18,6 +18,7 @@ import {WebglAddon} from 'xterm-addon-webgl';
 
 import type {TermProps} from '../../typings/hyper';
 import terms from '../terms';
+import inputReportingResetSequence from '../utils/input-reporting-modes';
 import processClipboard from '../utils/paste';
 import {decorate} from '../utils/plugins';
 
@@ -374,6 +375,10 @@ export default class Term extends React.PureComponent<
 
   reset() {
     this.term.reset();
+  }
+
+  resetInputModes() {
+    this.term.write(inputReportingResetSequence());
   }
 
   searchNext = (searchTerm: string) => {

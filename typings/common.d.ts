@@ -76,6 +76,7 @@ export type RendererEvents = {
   'session move word left req': never;
   'session move word right req': never;
   'term selectAll': never;
+  'term resetInputModes': never;
   reload: never;
   'session clear req': never;
   'split request horizontal': {activeUid?: string; profile?: string};

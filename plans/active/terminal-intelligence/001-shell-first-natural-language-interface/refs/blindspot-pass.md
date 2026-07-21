@@ -4,7 +4,7 @@ No user-confirmed blindspot transcript was added to goal context because this ru
 
 ## High impact
 
-- Hyper's Windows default shell is cmd.exe when shell is unset. cmd.exe lacks an authoritative hook, so automatic V1 requires a PowerShell profile/session. Documentation and unsupported-shell UI must make this explicit.
+- Hyper's Windows default shell is cmd.exe when shell is unset. cmd.exe lacks an authoritative hook, so automatic support requires a PowerShell profile/session. Documentation and unsupported-shell UI must make this explicit.
 - app-server is experimental and versioned. Capability checks, generated-schema fixtures, and a provider adapter are required.
 - User Codex configuration may contain tools/hooks/MCP/project instructions. A dedicated hardened CODEX_HOME is required; sharing the default home would violate proposal-only privacy.
 - PowerShell startup augmentation can silently break profiles or existing CommandNotFoundAction handlers. Refuse conflicting arguments and test preservation.

@@ -7,17 +7,23 @@ After approval, feed the exact reviewed PowerShell payload back into the same li
 
 ## Work
 
-- Add a typed renderer approval/edit/cancel RPC handled in app/ui/window.ts with sender/session validation.
-- Resolve the opaque approval against main's immutable plan, re-read current session/shell/cwd/attempt, rerun local validation/risk gates, and atomically consume the approval.
-- Write the stored exact payload plus the shell Enter sequence once through the existing Session.write/node-pty boundary. Do not use exec, execFile, a second terminal, or Codex tool execution.
-- Set/clear the recursion-suppression origin around the generated attempt.
-- Immediately restore terminal focus and stream ordinary PTY echo/output through the unchanged data path.
-- Handle closed PTY, write error, duplicate/replayed approval, newer command, stale cwd, and window shutdown without partial second writes.
+- [ ] Add typed renderer approval/edit/cancel RPC in app/ui/window.ts with sender/session validation.
+- [ ] Resolve opaque approval from main's immutable plan, re-read session/shell/cwd/attempt, rerun gates, and atomically consume before writing.
+- [ ] Write stored exact payload plus PowerShell Enter exactly once through Session.write/node-pty; never use exec, execFile, a second terminal, or a Codex tool.
+- [ ] Set/clear recursion-suppression origin around the generated attempt.
+- [ ] Restore terminal focus and stream echo/output through the unchanged data path.
+- [ ] Handle closed PTY, write error, replay, newer command, stale cwd, and shutdown without a partial second write.
+- [ ] Add test/unit/nli-execution.test.ts with fake Session and adversarial renderer fixtures.
 
 ## Acceptance
 
-- An approved payload reaches Session.write exactly once and is visibly echoed/executed in the original session.
-- Renderer-tampered text cannot change stored command bytes.
-- Replay, stale context, reject, cancel, and provider tool requests write zero bytes.
-- Generated lookup failure produces normal output and explicit retry UI, not recursive AI.
-- Existing interactive/menu/startup sendSessionData paths remain unchanged in regression tests.
+- [ ] Approved payload reaches Session.write exactly once and is visibly echoed/executed in the original session.
+- [ ] Renderer-tampered text cannot change stored command bytes.
+- [ ] Replay, stale context, reject, cancel, and provider tool requests write zero bytes.
+- [ ] Generated lookup failure produces normal output and explicit retry UI, not recursive AI.
+- [ ] Existing interactive/menu/startup sendSessionData paths remain unchanged in regression tests.
+
+## Verify
+
+- [ ] Run: pnpm exec ava test/unit/nli-execution.test.ts
+- [ ] Run: pnpm lint

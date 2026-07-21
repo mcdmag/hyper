@@ -151,6 +151,6 @@ Callers must not depend on OSC numeric identifiers, nonce format, generated Powe
 
 ## Support and evolution
 
-V1 automatic support covers interactive PowerShell 5.1 and 7. The adapter interface intentionally allows later bash command_not_found_handle, zsh command_not_found_handler, and fish_command_not_found implementations after startup/profile-preservation work. cmd.exe remains unsupported unless Windows exposes a trustworthy semantic boundary; error text and 9009 alone are not sufficient.
+The initial automatic adapter covers interactive PowerShell 5.1 and 7. This is a correctness boundary: bash command_not_found_handle, zsh command_not_found_handler, and fish_command_not_found require their own startup/profile-preservation proofs before they can satisfy the invariant. cmd.exe remains unsupported unless Windows exposes a trustworthy semantic boundary; error text and 9009 alone are not sufficient.
 
 A manual interpretation shortcut for unsupported shells is a separate product choice and is not used to weaken automatic-trigger guarantees.

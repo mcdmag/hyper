@@ -21,7 +21,7 @@ Bash invokes command_not_found_handle with the original command/arguments only a
 
 VS Code's documented OSC 633 shell integration demonstrates why exact shell-emitted command boundaries are more reliable than renderer keystroke reconstruction. xterm.js exposes parser hooks, but Hyper's main Session boundary is preferable here because provider/auth state remains main-only and a bounded parser can preserve all non-owned bytes.
 
-cmd.exe exposes history/macros through doskey but no authoritative catch-all unresolved-command callback. Localized error text and errorlevel 9009 are not adequate for the promised trigger, so V1 fails closed.
+cmd.exe exposes history/macros through doskey but no authoritative catch-all unresolved-command callback. Localized error text and errorlevel 9009 are not adequate for the promised trigger, so the automatic adapter fails closed.
 
 Sources:
 - https://www.gnu.org/software/bash/manual/html_node/Command-Search-and-Execution.html

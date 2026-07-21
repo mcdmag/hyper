@@ -33,7 +33,7 @@ Out of scope for this feature:
 
 - Guessing command-not-found from generic localized terminal text.
 - Treating exit 127, exit 9009, or any nonzero exit as sufficient evidence.
-- Automatic fallback for cmd.exe, WSL wrappers, remote shells, bash, zsh, fish, or arbitrary REPLs without a future authoritative adapter.
+- Automatic fallback for cmd.exe, WSL wrappers, remote shells, bash, zsh, fish, or arbitrary REPLs unless an authoritative adapter can meet the same semantic contract.
 - Codex executing tools, reading repository files, viewing scrollback/history/environment/clipboard, or owning raw OAuth tokens.
 - General Electron renderer hardening; the new IPC is validated, but existing plugin/renderer privileges are documented separately.
 - Automatic Codex CLI installation.
@@ -54,7 +54,7 @@ The implementation extends existing seams instead of adding a second terminal pa
 
 - UDC-0: The current raw input/output flow and all sendSessionData callers were traced in source.
 - UDC-1: Official Codex documentation and generated local app-server schemas support account login/read/logout, thread/start, turn/start, cancellation, streamed events, and outputSchema.
-- UDC-2: V1 automatic support is PowerShell-only. This is the narrowest truthful adapter and is paired with unsupported-shell tests and documentation.
+- UDC-2: The initial automatic adapter is PowerShell-only. This is a correctness boundary, not effort phasing: cmd.exe and outer WSL/remote launchers expose no trustworthy semantic command-not-found event. Unsupported-shell tests and documentation enforce fail-closed behavior.
 - UDC-2: One explicit approval covers one exact selected payload. An edit creates a new plan/digest and requires fresh approval; locally high-risk text adds a second deliberate confirmation. Companion reducer/service tests cover every transition.
 - UDC-2: A separate Hyper CODEX_HOME trades shared-login convenience for deterministic isolation from user tools/plugins/hooks. Browser sign-in remains official Codex OAuth and credentials stay in the keyring. Companion tests assert no tokens or inherited tool configuration cross IPC or PTY environment.
 
@@ -76,9 +76,41 @@ The implementation extends existing seams instead of adding a second terminal pa
 
 The feature defaults off. When enabled, startup instrumentation is attempted only for recognized interactive PowerShell argument sets. Conflicting -File, -Command, or -EncodedCommand sessions remain untouched. Missing/incompatible Codex shows setup guidance after fallback, never a separate terminal window. The provider executable path is configurable; protocol capability is checked at runtime and incompatible versions fail with a clear message.
 
+## State contracts
+
+- Shell event: sessionUid, eventId, reason=command-not-found, submittedLine, shellFamily, shellVersion, nonce proof. The parser removes framing, preserves visible bytes, and app/session.ts flushes the visible PowerShell error before app/ui/window.ts emits the semantic event.
+- Interpretation context: attemptId plus the shell event, OS, and either a disclosed cwd or an omitted cwd. Scrollback, history, environment, files, clipboard, and credentials never pass this boundary.
+- Display proposal: display-safe summary/options/risks plus opaque planId and optionId. Authoritative command bytes and digests remain main-only.
+- Approval request: sessionUid, attemptId, planId, optionId, editRevision, and highRiskConfirmation; no command text. Main atomically consumes the matching immutable approval before one Session.write.
+- Legal lifecycle: idle -> detected -> privacy/auth-required -> interpreting -> review -> approving -> sent, with cancel/error/stale terminal branches. A newer attempt, edit, cwd/shell change, session close, replay, or consumed approval makes the previous plan stale.
+
+## Configuration and migration
+
+Add the root naturalLanguageInterface object with enabled=false, codexExecutable="codex", requestTimeoutMs=30000, maxInputChars=4096, maxOptions=3, and includeWorkingDirectory=false. Clamp numeric values to documented safe bounds. Existing configs inherit these additive defaults through Hyper's current config merge; no migration script or config rewrite is allowed.
+
+## Threat model, errors, and diagnostics
+
+Address token leakage, replay/stale approvals, privilege escalation through model output, malformed IPC/JSONL/OSC, command spoofing, and unexpected Codex tool requests by isolation, validation, opaque IDs, atomic consumption, and fail-closed cancellation. This does not protect against a compromised existing renderer/plugin, a malicious user-configured Codex executable, OS/keyring compromise, phishing in the system browser, or hostile terminal code that learns the session nonce; the mandatory review gate remains the model-safety boundary.
+
+New failures use discriminated local error codes and renderer states. Debug diagnostics may contain only severity, code, component, and opaque correlation ID; they must redact failed input, command options, cwd, auth data, Codex stdout/stderr, and environment values. No analytics or telemetry events are added because failed natural-language input and generated commands are sensitive and no existing product telemetry contract is needed for correctness.
+
+There is no HTTP API change: all new contracts are local typed Electron RPC. There is no Hyper command-line flag or help change: enablement and executable selection live in config/UI, so the existing CLI argv/help surface remains unchanged.
+
+## Idempotency and performance budget
+
+PowerShell hook installation is repeat-safe: one collision-safe artifact and delegate per session, one event per eventId, duplicate semantic events are ignored, and cleanup/fallback re-init may run repeatedly. Synchronous integration setup, excluding node-pty process spawn and filesystem materialization, must add no more than 5 ms p95 in test/unit/nli-performance.test.ts. The input hot path must construct/call zero providers and perform zero awaited NLI work before pty.write; test/unit/nli-performance.test.ts compares 10,000 disabled/unsupported/enabled-valid dispatches and allows no more than 1 ms p95 incremental per dispatch.
+
+Provider interpretation is bounded by requestTimeoutMs and cancellation; OSC parsing is bounded by maxInputChars and returns malformed/oversized data to the visible stream without starting NLI.
+
+## Rollback and local dry run
+
+The immediate kill switch is naturalLanguageInterface.enabled=false, which leaves shell args, PTY bytes, and provider lifecycle unchanged. A code rollback is git revert of the feature merge commit; because config is additive and default-off, old installs ignore the key without a down migration. Provider disposal and repeat-safe hook cleanup remove runtime artifacts.
+
+No CI/deploy workflow changes are required. The release dry run is local and non-publishing: pnpm run build, then pnpm exec electron-builder --win dir --x64 --publish never, then run the PowerShell packaged smoke against dist/win-unpacked/Hyper.exe and verify the Codex child is hidden and terminates with Hyper.
+
 The feature branch and pull request must target dev explicitly. Do not target the repository's older default canary branch. After merge, fast-forward the local dev worktree.
 
-## Verification
+## Definition of done
 
 Run on every implementation task as applicable:
 

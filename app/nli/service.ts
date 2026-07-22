@@ -2,9 +2,13 @@ import {posix, win32} from 'path';
 
 import type {
   AttemptId,
+  ClarificationPlan,
   NliAttempt,
   NliApprovalRequest,
+  NliAuthState,
   NliAttemptRequest,
+  NliClarificationAnswer,
+  NliClarificationRequest,
   NliClock,
   NliDiagnostic,
   NliDisplayState,
@@ -75,11 +79,13 @@ interface ServiceAttempt {
   status: NliLifecycleStatus;
   inFlight: boolean;
   activePlanId?: PlanId;
+  clarificationPlan?: ClarificationPlan;
   commandPlan?: ImmutableCommandPlan;
 }
 
 export interface NliServiceOptions {
   readonly windowUid: string;
+  readonly approvalIdentity: NliApprovalIdentity;
   readonly enabled: () => boolean;
   readonly preferences: NliPreferencesStore;
   readonly providerFactory: () => NliProvider;
@@ -177,11 +183,11 @@ export class NliService {
     preferences: Omit<NliPrivacyPreferences, 'privacyNoticeVersion'>
   ): Promise<NliPrivacyPreferences> {
     const saved = await this.options.preferences.save(preferences);
-    for (const attempt of this.attempts.values()) {
-      if (attempt.status === 'privacy-required') {
-        void this.continueAfterPrivacy(attempt, saved);
-      }
-    }
+    await Promise.all(
+      [...this.attempts.values()]
+        .filter((attempt) => attempt.status === 'privacy-required')
+        .map((attempt) => this.continueAfterPrivacy(attempt, saved))
+    );
     return saved;
   }
 
@@ -194,15 +200,29 @@ export class NliService {
     }
   }
 
-  async login(sessionUid: SessionUid): Promise<void> {
+  async getAuthStatus(): Promise<NliAuthState> {
+    try {
+      return await this.getProvider().getAuthStatus();
+    } catch (error) {
+      return this.authError(error);
+    }
+  }
+
+  async login(sessionUid: SessionUid): Promise<NliAuthState> {
     const attempt = this.attempts.get(sessionUid);
     if (!attempt || attempt.status !== 'auth-required' || attempt.inFlight || !this.isCurrent(attempt)) {
-      return;
+      try {
+        const current = await this.getProvider().getAuthStatus();
+        if (current.status === 'signed-in') return current;
+        return await this.getProvider().login();
+      } catch (error) {
+        return this.authError(error);
+      }
     }
     attempt.inFlight = true;
     try {
       const auth = await this.getProvider().login(attempt.abortController.signal);
-      if (!this.isCurrent(attempt)) return;
+      if (!this.isCurrent(attempt)) return auth;
       if (auth.status === 'signed-in') {
         this.transition(attempt, 'interpreting');
         this.options.emitState({
@@ -216,8 +236,10 @@ export class NliService {
       } else {
         this.finish(attempt, 'error', auth.code);
       }
+      return auth;
     } catch (error) {
       this.handleError(attempt, error);
+      return this.authError(error);
     } finally {
       attempt.inFlight = false;
     }
@@ -234,10 +256,46 @@ export class NliService {
     }
   }
 
+  async cancelLogin(): Promise<void> {
+    if (this.provider) await this.provider.cancelLogin();
+  }
+
   cancel(request: NliAttemptRequest): void {
     const attempt = this.match(request);
     if (attempt && !TERMINAL_STATES.has(attempt.status)) {
       this.finish(attempt, 'cancelled', 'NLI_CANCELLED');
+    }
+  }
+
+  async clarify(request: NliClarificationRequest): Promise<void> {
+    const attempt = this.match(request);
+    if (
+      !attempt ||
+      attempt.status !== 'clarification' ||
+      attempt.inFlight ||
+      attempt.activePlanId !== request.planId ||
+      !attempt.clarificationPlan
+    ) {
+      return;
+    }
+    const choice = attempt.clarificationPlan.choices.find((candidate) => candidate.optionId === request.optionId);
+    if (!choice || !this.isSnapshotCurrent(attempt, this.options.getSessionSnapshot(request.sessionUid))) {
+      this.finish(attempt, 'stale', 'NLI_STALE');
+      return;
+    }
+    attempt.inFlight = true;
+    try {
+      this.transition(attempt, 'interpreting');
+      this.options.emitState({status: 'interpreting', sessionUid: request.sessionUid, attemptId: request.attemptId});
+      const preferences = await this.options.preferences.load();
+      await this.interpret(attempt, preferences, {
+        question: attempt.clarificationPlan.question,
+        selectedOptionLabel: choice.label
+      });
+    } catch (error) {
+      this.handleError(attempt, error);
+    } finally {
+      attempt.inFlight = false;
     }
   }
 
@@ -402,7 +460,11 @@ export class NliService {
     }
   }
 
-  private async interpret(attempt: ServiceAttempt, preferences: NliPrivacyPreferences | null): Promise<void> {
+  private async interpret(
+    attempt: ServiceAttempt,
+    preferences: NliPrivacyPreferences | null,
+    clarification?: NliClarificationAnswer
+  ): Promise<void> {
     if (!preferences || !this.isCurrent(attempt)) return;
     const snapshot = this.options.getSessionSnapshot(attempt.attempt.sessionUid);
     if (!this.isSnapshotCurrent(attempt, snapshot)) {
@@ -449,7 +511,8 @@ export class NliService {
         ...(preferences.includeWorkingDirectory && this.options.includeWorkingDirectory() && currentWorkingDirectory
           ? {workingDirectory: currentWorkingDirectory}
           : {}),
-        ...(git ? {git} : {})
+        ...(git ? {git} : {}),
+        ...(clarification ? {clarification} : {})
       }),
       attempt.abortController.signal
     );
@@ -460,7 +523,10 @@ export class NliService {
   private emitProviderResult(attempt: ServiceAttempt, value: unknown): void {
     const result = validateCommandPlan(value, this.options.maxOptions());
     attempt.activePlanId = result.planId;
+    attempt.commandPlan = undefined;
+    attempt.clarificationPlan = undefined;
     if (result.kind === 'clarification') {
+      attempt.clarificationPlan = result;
       this.transition(attempt, 'clarification');
       this.options.emitState({
         status: 'clarification',
@@ -480,7 +546,8 @@ export class NliService {
         attemptId: attempt.attempt.attemptId,
         shellIdentity: attempt.shellIdentity,
         cwdFingerprint: attempt.attempt.cwdFingerprint,
-        submittedLine: attempt.event.submittedLine
+        submittedLine: attempt.event.submittedLine,
+        approvalIdentity: this.options.approvalIdentity
       },
       result
     );
@@ -555,6 +622,18 @@ export class NliService {
           ? 'NLI_CANCELLED'
           : 'NLI_PROVIDER_FAILED';
     this.finish(attempt, code === 'NLI_CANCELLED' ? 'cancelled' : code === 'NLI_STALE' ? 'stale' : 'error', code);
+  }
+
+  private authError(error: unknown): NliAuthState {
+    const code =
+      error instanceof Error && isNliErrorCode((error as Error & {code?: unknown}).code)
+        ? (error as Error & {code: NliErrorCode}).code
+        : 'NLI_PROVIDER_FAILED';
+    return {
+      status: 'error',
+      code,
+      correlationId: this.options.nonceSource.create(12)
+    };
   }
 
   private match(request: NliAttemptRequest): ServiceAttempt | undefined {

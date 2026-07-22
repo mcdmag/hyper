@@ -4,6 +4,7 @@ import {connect} from 'react-redux';
 
 import type {HyperState, HyperDispatch, TermGroupProps, TermGroupOwnProps} from '../../typings/hyper';
 import {resizeTermGroup} from '../actions/term-groups';
+import NliPanel from '../containers/nli-panel';
 import {decorate, getTermProps, getTermGroupProps} from '../utils/plugins';
 
 import SplitPane_ from './split-pane';
@@ -116,7 +117,29 @@ class TermGroup_ extends React.PureComponent<TermGroupProps> {
     // This will create a new ref_ function for every render,
     // which is inefficient. Should maybe do something similar
     // to this.bind.
-    return <Term ref_={this.onTermRef} key={uid} {...props} />;
+    return (
+      <div className="termgroup_termWithNli" key={uid}>
+        <Term ref_={this.onTermRef} {...props} />
+        <NliPanel
+          sessionUid={uid as import('../../typings/nli').SessionUid}
+          shell={session.shell}
+          active={uid === this.props.activeSession}
+        />
+        <style jsx>{`
+          .termgroup_termWithNli {
+            display: grid;
+            grid-template-rows: minmax(0, 1fr) auto;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
+            overflow: hidden;
+          }
+          .termgroup_termWithNli > :global(.term_fit) {
+            min-height: 0;
+          }
+        `}</style>
+      </div>
+    );
   }
 
   render() {

@@ -41,8 +41,6 @@ test('opaque identifiers are not interchangeable at compile time', (t) => {
   const optionId = 'option' as OptionId;
 
   const approval: NliApprovalRequest = {
-    windowId: 1,
-    rendererId: 2,
     sessionUid,
     attemptId,
     planId,
@@ -64,6 +62,8 @@ test('renderer approval contract cannot carry command text', (t) => {
   t.truthy(approvalContract);
   t.false(approvalContract?.includes('shellText'));
   t.false(approvalContract?.includes('commandPreview'));
+  t.false(approvalContract?.includes('windowId'));
+  t.false(approvalContract?.includes('rendererId'));
 });
 
 test('preferences use the userData-relative path and reset revokes consent', async (t) => {

@@ -72,6 +72,11 @@ export interface NliPrivacyPreferences {
   readonly shareSecretLookingInput?: boolean;
 }
 
+export interface NliClarificationAnswer {
+  readonly question: string;
+  readonly selectedOptionLabel: string;
+}
+
 export type NliPrivacyState =
   | {readonly status: 'consent-required'}
   | {
@@ -98,6 +103,7 @@ export interface NliInterpretationContext {
   readonly cwdFingerprint: string;
   readonly workingDirectory?: string;
   readonly git?: NliGitMetadata;
+  readonly clarification?: NliClarificationAnswer;
 }
 
 export interface CommandPlanOption {
@@ -214,8 +220,6 @@ export type NliDisplayState =
 
 /** Opaque authorization only. Command text is deliberately impossible to include here. */
 export interface NliApprovalRequest {
-  readonly windowId: number;
-  readonly rendererId: number;
   readonly sessionUid: SessionUid;
   readonly attemptId: AttemptId;
   readonly planId: PlanId;
@@ -347,4 +351,16 @@ export interface NliDiagnostic {
   readonly code: NliErrorCode;
   readonly component: 'service';
   readonly correlationId: string;
+}
+
+export interface NliRendererSessionState {
+  readonly setupOpen: boolean;
+  readonly unsupportedDismissed: boolean;
+  readonly display?: NliDisplayState;
+  readonly selectedOptionId?: OptionId;
+  readonly editText: string;
+  readonly editing: boolean;
+  readonly highRiskArmed: boolean;
+  readonly signingIn: boolean;
+  readonly auth: NliAuthState;
 }

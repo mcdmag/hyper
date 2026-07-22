@@ -131,6 +131,7 @@ const makeHarness = (
   const nonceSource: NliNonceSource = {create: () => `id-${++ids}`};
   const service = new NliService({
     windowUid: 'window-1',
+    approvalIdentity: {windowId: 10, rendererId: 20},
     enabled: () => true,
     preferences: makePreferencesStore(privacy),
     providerFactory: () => {
@@ -260,8 +261,6 @@ test('service edits and atomically authorizes only the current opaque plan revis
   t.is(edited.options[0].risk.level, 'high');
 
   const baseApproval = {
-    windowId: 10,
-    rendererId: 20,
     sessionUid,
     attemptId: review.attemptId,
     planId: review.planId,
@@ -428,17 +427,22 @@ test('cwd changes make the attempt stale before provider interpretation', async 
 
 test('concurrent consent and login actions cannot duplicate interpretation', async (t) => {
   const privacyHarness = makeHarness(null);
-  privacyHarness.provider.deferred = new Promise(() => undefined);
+  let resolveInterpretation!: (value: NliProviderResult) => void;
+  privacyHarness.provider.deferred = new Promise((resolve) => {
+    resolveInterpretation = resolve;
+  });
   privacyHarness.service.onCommandNotFound(makeEvent());
   await flush();
 
   const preferences = {includeWorkingDirectory: false, includeGitMetadata: false};
-  await Promise.all([
+  const saves = Promise.all([
     privacyHarness.service.setPrivacyPreferences(preferences),
     privacyHarness.service.setPrivacyPreferences(preferences)
   ]);
   await flush();
   t.is(privacyHarness.provider.interpretCalls, 1);
+  resolveInterpretation(privacyHarness.provider.result);
+  await saves;
 
   const loginHarness = makeHarness({privacyNoticeVersion: 1, ...preferences});
   loginHarness.provider.auth = {status: 'signed-out'};
@@ -611,8 +615,6 @@ test('approval-time context check re-samples cwd and exact shell identity', asyn
   t.deepEqual(
     harness.service.approve(
       {
-        windowId: 10,
-        rendererId: 20,
         sessionUid,
         attemptId: review!.attemptId,
         planId: review!.planId,
@@ -643,8 +645,6 @@ test('approval-time context check re-samples cwd and exact shell identity', asyn
   t.deepEqual(
     shellHarness.service.approve(
       {
-        windowId: 10,
-        rendererId: 20,
         sessionUid,
         attemptId: shellReview!.attemptId,
         planId: shellReview!.planId,
@@ -666,8 +666,6 @@ test('session disposal and a newer attempt invalidate an old approval', async (t
     includeGitMetadata: false
   } as const;
   const approvalFor = (review: Extract<NliDisplayState, {status: 'review'}>) => ({
-    windowId: 10,
-    rendererId: 20,
     sessionUid,
     attemptId: review.attemptId,
     planId: review.planId,

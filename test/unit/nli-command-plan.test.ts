@@ -47,12 +47,11 @@ const binding = Object.freeze({
   attemptId,
   shellIdentity: 'c:\\program files\\powershell\\7\\pwsh.exe',
   cwdFingerprint: 'cwd-fingerprint',
-  submittedLine: 'commit the changes and create a pr'
+  submittedLine: 'commit the changes and create a pr',
+  approvalIdentity: Object.freeze({windowId: 10, rendererId: 20})
 });
 
 const approval = (overrides: Partial<NliApprovalRequest> = {}): NliApprovalRequest => ({
-  windowId: 10,
-  rendererId: 20,
   sessionUid,
   attemptId,
   planId,

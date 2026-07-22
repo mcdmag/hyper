@@ -9,11 +9,13 @@ import type {configOptions} from '../typings/config';
 
 import {loadConfig, reloadConfig} from './actions/config';
 import init from './actions/index';
+import * as nliActions from './actions/nli';
 import {addNotificationMessage} from './actions/notifications';
 import * as sessionActions from './actions/sessions';
 import * as termGroupActions from './actions/term-groups';
 import * as uiActions from './actions/ui';
 import * as updaterActions from './actions/updater';
+import {registerCommandHandlers} from './command-registry';
 import HyperContainer from './containers/hyper';
 import rpc from './rpc';
 import configureStore from './store/configure-store';
@@ -28,6 +30,10 @@ if (process.platform === 'linux') {
 }
 
 const store_ = configureStore();
+
+registerCommandHandlers({
+  'nli:setup': (_event, dispatch) => dispatch(nliActions.openNliSetup())
+});
 
 Object.defineProperty(window, 'store', {get: () => store_});
 Object.defineProperty(window, 'rpc', {get: () => rpc});
@@ -91,6 +97,18 @@ rpc.on('session data send', ({uid, data, escaped}) => {
 
 rpc.on('session exit', ({uid}) => {
   store_.dispatch(termGroupActions.ptyExitTermGroup(uid));
+});
+
+rpc.on('nli state', (state) => {
+  store_.dispatch(nliActions.receiveNliState(state));
+});
+
+rpc.on('nli auth state', ({sessionUid, auth}) => {
+  store_.dispatch(nliActions.receiveNliAuth(sessionUid, auth));
+});
+
+rpc.on('nli setup req', () => {
+  store_.dispatch(nliActions.openNliSetup());
 });
 
 rpc.on('termgroup close req', () => {

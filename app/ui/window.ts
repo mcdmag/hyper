@@ -77,6 +77,7 @@ export function newWindow(
   const sessions = new Map<string, Session>();
   const nliService = new NliService({
     windowUid: window.uid,
+    approvalIdentity: {windowId: window.id, rendererId: window.webContents.id},
     enabled: () => cfg.naturalLanguageInterface.enabled,
     preferences: createNliPreferencesStore(app.getPath('userData')),
     providerFactory: () =>
@@ -298,17 +299,42 @@ export function newWindow(
   rpc.on(NLI_RPC_EVENTS.cancel, (request) => {
     nliService.cancel(request);
   });
+  rpc.on(NLI_RPC_EVENTS.cancelLogin, ({sessionUid}) => {
+    void nliService
+      .cancelLogin()
+      .then(() => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth: {status: 'signed-out'}}));
+  });
+  rpc.on(NLI_RPC_EVENTS.clarify, (request) => {
+    void nliService.clarify(request);
+  });
   rpc.on(NLI_RPC_EVENTS.edit, (request) => {
     nliService.edit(request);
+  });
+  rpc.on(NLI_RPC_EVENTS.privacy, ({sessionUid, preferences}) => {
+    void nliService
+      .setPrivacyPreferences(preferences)
+      .then(() => nliService.login(sessionUid).then((auth) => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth})));
+  });
+  rpc.on(NLI_RPC_EVENTS.resetPrivacy, ({sessionUid}) => {
+    void nliService
+      .resetPrivacyPreferences()
+      .then(() => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth: {status: 'unknown'}}));
+  });
+  rpc.on(NLI_RPC_EVENTS.reject, (request) => {
+    nliService.reject(request);
   });
   rpc.on(NLI_RPC_EVENTS.retry, (request) => {
     nliService.retry(request);
   });
   rpc.on(NLI_RPC_EVENTS.login, ({sessionUid}) => {
-    void nliService.login(sessionUid);
+    rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth: {status: 'signing-in'}});
+    void nliService.login(sessionUid).then((auth) => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth}));
   });
-  rpc.on(NLI_RPC_EVENTS.logout, () => {
-    void nliService.logout();
+  rpc.on(NLI_RPC_EVENTS.logout, ({sessionUid}) => {
+    void nliService.logout().then(() => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth: {status: 'signed-out'}}));
+  });
+  rpc.on(NLI_RPC_EVENTS.status, ({sessionUid}) => {
+    void nliService.getAuthStatus().then((auth) => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth}));
   });
   rpc.on('info renderer', ({uid, type}) => {
     // Used in the "About" dialog

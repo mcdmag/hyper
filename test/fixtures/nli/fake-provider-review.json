@@ -1,0 +1,36 @@
+{
+  "status": "review",
+  "attemptId": "e2e-attempt",
+  "planId": "e2e-plan",
+  "summary": "Choose how to publish the current changes.",
+  "editRevision": 0,
+  "options": [
+    {
+      "optionId": "e2e-all",
+      "label": "Commit all changes and open a PR",
+      "rationale": "Stages all current work before publishing.",
+      "assumptions": ["GitHub CLI is authenticated."],
+      "purpose": "Publish all current changes.",
+      "commandPreview": "git add -A; git commit; git push -u origin HEAD; gh pr create --base dev",
+      "risk": {"level": "medium", "reasons": ["Writes Git history and publishes a branch."], "requiresSecondConfirmation": false}
+    },
+    {
+      "optionId": "e2e-staged",
+      "label": "Commit staged changes only",
+      "rationale": "Leaves unstaged work local.",
+      "assumptions": [],
+      "purpose": "Publish only staged changes.",
+      "commandPreview": "git commit; git push -u origin HEAD; gh pr create --base dev",
+      "risk": {"level": "medium", "reasons": ["Publishes a branch."], "requiresSecondConfirmation": false}
+    },
+    {
+      "optionId": "e2e-draft",
+      "label": "Create a draft PR",
+      "rationale": "Publishes the work for early review.",
+      "assumptions": [],
+      "purpose": "Open a draft pull request.",
+      "commandPreview": "git add -A; git commit; git push -u origin HEAD; gh pr create --draft --base dev",
+      "risk": {"level": "medium", "reasons": ["Publishes a branch."], "requiresSecondConfirmation": false}
+    }
+  ]
+}

@@ -7,10 +7,13 @@ import type parseUrl from 'parse-url';
 import type {configOptions} from './config';
 import type {
   NliApprovalRequest,
+  NliAuthState,
   NliAttemptRequest,
   NliClarificationRequest,
   NliDisplayState,
   NliEditRequest,
+  NliPlanRequest,
+  NliPrivacyPreferences,
   SessionUid
 } from './nli';
 
@@ -55,11 +58,19 @@ export type MainEvents = {
   unmaximize: never;
   'nli approve': NliApprovalRequest;
   'nli cancel': NliAttemptRequest;
+  'nli cancel login': {sessionUid: SessionUid};
   'nli clarify': NliClarificationRequest;
   'nli edit': NliEditRequest;
   'nli login': {sessionUid: SessionUid};
   'nli logout': {sessionUid: SessionUid};
+  'nli privacy': {
+    sessionUid: SessionUid;
+    preferences: Omit<NliPrivacyPreferences, 'privacyNoticeVersion'>;
+  };
+  'nli reset privacy': {sessionUid: SessionUid};
+  'nli reject': NliPlanRequest;
   'nli retry': NliAttemptRequest;
+  'nli status': {sessionUid: SessionUid};
 };
 
 export type RendererEvents = {
@@ -112,6 +123,8 @@ export type RendererEvents = {
   'leave full screen': never;
   'session data send': {uid: string | null; data: string; escaped?: boolean};
   'nli state': NliDisplayState;
+  'nli auth state': {sessionUid: SessionUid; auth: NliAuthState};
+  'nli setup req': never;
 };
 
 /**

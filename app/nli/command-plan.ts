@@ -31,17 +31,18 @@ interface UnknownObject {
   readonly [key: string]: unknown;
 }
 
+export interface NliApprovalIdentity {
+  readonly windowId: number;
+  readonly rendererId: number;
+}
+
 export interface CommandPlanBinding {
   readonly sessionUid: SessionUid;
   readonly attemptId: AttemptId;
   readonly shellIdentity: string;
   readonly cwdFingerprint: string;
   readonly submittedLine: string;
-}
-
-export interface NliApprovalIdentity {
-  readonly windowId: number;
-  readonly rendererId: number;
+  readonly approvalIdentity: NliApprovalIdentity;
 }
 
 export type NliApprovalDecision =
@@ -272,6 +273,8 @@ const digestOption = (binding: CommandPlanBinding, planId: PlanId, option: Comma
         binding.shellIdentity,
         binding.cwdFingerprint,
         binding.submittedLine,
+        String(binding.approvalIdentity.windowId),
+        String(binding.approvalIdentity.rendererId),
         planId,
         option.optionId,
         option.shellText,
@@ -310,7 +313,7 @@ export class ImmutableCommandPlan {
   }>;
 
   constructor(binding: CommandPlanBinding, plan: CommandPlan) {
-    this.binding = Object.freeze({...binding});
+    this.binding = Object.freeze({...binding, approvalIdentity: Object.freeze({...binding.approvalIdentity})});
     this.planId = plan.planId;
     this.summary = plan.summary;
     this.options = Object.freeze(plan.options.map((option) => storeOption(this.binding, this.planId, option, 0)));
@@ -367,8 +370,8 @@ export class ImmutableCommandPlan {
   authorize(request: NliApprovalRequest, identity: NliApprovalIdentity): NliApprovalDecision {
     if (
       this.consumed ||
-      request.windowId !== identity.windowId ||
-      request.rendererId !== identity.rendererId ||
+      this.binding.approvalIdentity.windowId !== identity.windowId ||
+      this.binding.approvalIdentity.rendererId !== identity.rendererId ||
       request.sessionUid !== this.binding.sessionUid ||
       request.attemptId !== this.binding.attemptId ||
       request.planId !== this.planId ||

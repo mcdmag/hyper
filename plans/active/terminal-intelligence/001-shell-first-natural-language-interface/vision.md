@@ -108,11 +108,10 @@ The feature is off by default, capability-checked, cancelable, and observable th
   - getAuthStatus, login, cancelLogin, logout, interpret(context, signal), dispose. Implementations validate and return only NliProviderResult values.
 - NliService.onCommandNotFound(event), approve(request, identity), edit(request), cancel(request), disposeSession(uid)
   - Owns lifecycle, privacy/auth gating, immutable plans, stale checks, and execution authorization.
-- validateCommandPlan(value: unknown, maximumOptions?: number): NliProviderResult
-  - Returns a bounded normalized plan or a typed validation error; no coercion from prose.
+- validateCommandPlan is the bounded provider-output validator and returns only NliProviderResult or a typed validation error; it never coerces prose.
 - classifyCommandRisk(shellText: string): LocalRiskAssessment
   - Deterministic advisory classification independent of model labels.
-- Renderer actions selectOption, editPayload, approvePlan, rejectPlan, retryInterpretation, cancelInterpretation, startLogin, logout.
+- Renderer actions openNliSetup, dismissNli, selectNliOption, beginNliEdit, updateNliEdit, cancelNliEdit, saveNliEdit, approveNli, rejectNli, clarifyNli, retryNli, loginNli, logoutNli, saveNliPrivacy, resetNliPrivacy.
 - NliPanel props are display state and callbacks only; command authority remains in main.
 - Existing Session.write(data: string) remains the sole PTY write primitive used for both user and approved NLI bytes.
 

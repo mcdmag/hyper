@@ -303,8 +303,8 @@ typings/nli.d.ts
 
 ## Pull Request
 
-_Pending — will be filled in by feature-completion.ts after `gh pr create`._
-- Base branch: `main`
+- https://github.com/mcdmag/hyper/pull/7
+- Base: `main`
 
 ## Plan Location
 

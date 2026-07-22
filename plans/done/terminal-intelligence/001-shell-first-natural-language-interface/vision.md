@@ -1,8 +1,8 @@
 ---
 spec_id: 1
-status: active
+status: done
 created: 2026-07-21
-completed: null
+completed: 2026-07-22
 category: terminal-intelligence
 subsystems: []
 scope_tags: [web-ui, auth, config, cli, performance]

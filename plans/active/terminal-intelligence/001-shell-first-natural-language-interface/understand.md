@@ -53,13 +53,15 @@ Validated `NliProviderResult` values become an `ImmutableCommandPlan`. Renderer 
 
 ## Decisions and what we rejected
 
-- We chose shell-first execution. Pre-classifying every line was rejected because it adds latency and changes valid-command behavior.
-- We chose an authoritative PowerShell hook. Output regexes and exit codes were rejected because they misclassify localized errors and legitimate nonzero exits.
-- We chose proposal-only Codex app-server integration. Giving Codex terminal tools, repository cwd, project instructions, MCP/plugins, or approval authority was rejected because interpretation does not require execution access.
-- We chose opaque renderer IDs plus main-owned bytes. Sending command authority back from Redux was rejected because a stale or compromised renderer could alter approved text.
-- We chose one consumed write attempt. Automatic retry was rejected because a PTY error can have an unknown delivery outcome.
-- We chose PowerShell-only automatic fallback for the first release. Pretending `cmd.exe`, WSL, SSH, or Unix shells have equivalent semantics was rejected; each needs a new adapter and the same profile, privacy, ordering, and performance proofs.
-- We chose a small cross-window coordinator. Window-local Reset Privacy/Logout was rejected because the underlying preference file and keyring identity are shared per install.
+| Decision | Chosen approach | Rejected alternative | Accepted tradeoff |
+| --- | --- | --- | --- |
+| Trigger timing | Execute through the original PTY first | Pre-classify every line with AI | Assistance appears only after authoritative shell failure, preserving valid-command latency. |
+| Failure signal | Authenticated PowerShell lookup hook | Output regexes or nonzero exit codes | Automatic fallback initially supports fewer shells but avoids false triggers. |
+| Provider authority | Proposal-only Codex app-server | Terminal tools, repository cwd, project instructions, plugins, or approval authority | Hyper must own more validation and review state, but interpretation cannot execute. |
+| Command authority | Opaque renderer IDs plus main-owned immutable bytes | Send authoritative command text back from Redux | Main retains a plan vault and context digest, preventing stale renderer text from replacing approval. |
+| PTY delivery | Consume one approval before one write attempt | Automatically retry PTY errors | An uncertain delivery is shown honestly and needs human inspection. |
+| Supported adapters | Interactive PowerShell 5.1/7 only | Pretend `cmd.exe`, WSL, SSH, or Unix shells expose equivalent semantics | Broader shell support is deferred until each adapter can prove the same invariants. |
+| Shared revocation | Cross-window reset/logout coordinator | Update only the invoking window | A small registry is maintained so per-install preference and identity changes reach every window. |
 
 ## Watch out for
 
@@ -84,10 +86,30 @@ Validated `NliProviderResult` values become an `ImmutableCommandPlan`. Renderer 
 
 ## Self-check
 
-1. **Does a valid command ever initialize Codex?** No. The original PTY write happens first; only a later authenticated unresolved-command event can enter NLI.
-2. **Does any nonzero exit trigger NLI?** No. Only the PowerShell lookup hook can emit the accepted semantic event.
-3. **Can Codex execute a proposed command?** No. Tools and approvals are disabled/denied; only explicit user approval lets main write stored bytes once.
-4. **Why are command choices identified by opaque IDs?** So the renderer can select a main-owned immutable option without becoming the authority for shell text.
-5. **What invalidates approval?** A newer attempt, input/context/cwd/shell/pane/window change, edit revision, close, replay, cancellation, or already-consumed authorization.
-6. **Why does Logout fan out across windows?** Codex identity is shared per install, so every live service and renderer session must observe revocation.
-7. **What proves the release?** Lint plus 113 tests, production build, Windows unpacked package, 8 Electron journeys, 10 verified Cue proof obligations, sub-2% visual diffs, and the isolated one-app/no-dangling-process smoke.
+1. Does a valid command ever initialize Codex?
+
+   No. The original PTY write happens first; only a later authenticated unresolved-command event can enter NLI.
+
+2. Does any nonzero exit trigger NLI?
+
+   No. Only the PowerShell lookup hook can emit the accepted semantic event.
+
+3. Can Codex execute a proposed command?
+
+   No. Tools and approvals are disabled or denied; only explicit user approval lets main write stored bytes once.
+
+4. Why are command choices identified by opaque IDs?
+
+   The renderer can select a main-owned immutable option without becoming the authority for shell text.
+
+5. What invalidates approval?
+
+   A newer attempt, input or context change, cwd or shell change, pane or window change, edit revision, close, replay, cancellation, or already-consumed authorization.
+
+6. Why does Logout fan out across windows?
+
+   Codex identity is shared per install, so every live service and renderer session must observe revocation.
+
+7. What proves the release?
+
+   Lint plus 113 tests, production build, Windows unpacked package, 8 Electron journeys, 10 verified Cue proof obligations, sub-2% visual diffs, and the isolated one-app/no-dangling-process smoke.

@@ -12,11 +12,12 @@ import {v4 as uuidv4} from 'uuid';
 
 import type {sessionExtraOptions} from '../../typings/common';
 import type {configOptions} from '../../typings/config';
-import type {NliErrorCode, SessionUid, ShellSemanticEvent} from '../../typings/nli';
+import type {SessionUid, ShellSemanticEvent} from '../../typings/nli';
 import {execCommand} from '../commands';
 import {getDefaultProfile} from '../config';
 import {icon, homeDirectory} from '../config/paths';
-import {cryptoNonceSource, systemClock} from '../nli/dependencies';
+import {CodexAppServerProvider} from '../nli/codex-app-server';
+import {cryptoNonceSource, nodeChildProcessFactory, systemClock} from '../nli/dependencies';
 import {NLI_RPC_EVENTS, NLI_SESSION_EVENTS} from '../nli/events';
 import {collectNliGitMetadata} from '../nli/git-metadata';
 import {createNliPreferencesStore} from '../nli/preferences';
@@ -78,11 +79,15 @@ export function newWindow(
     windowUid: window.uid,
     enabled: () => cfg.naturalLanguageInterface.enabled,
     preferences: createNliPreferencesStore(app.getPath('userData')),
-    providerFactory: () => {
-      throw Object.assign(new Error('Codex provider is not available'), {
-        code: 'NLI_CODEX_INCOMPATIBLE' satisfies NliErrorCode
-      });
-    },
+    providerFactory: () =>
+      new CodexAppServerProvider({
+        executable: cfg.naturalLanguageInterface.codexExecutable,
+        userDataPath: app.getPath('userData'),
+        requestTimeoutMs: cfg.naturalLanguageInterface.requestTimeoutMs,
+        maxOptions: cfg.naturalLanguageInterface.maxOptions,
+        childProcessFactory: nodeChildProcessFactory,
+        openExternal: (url) => shell.openExternal(url)
+      }),
     clock: systemClock,
     nonceSource: cryptoNonceSource,
     emitState: (state) => rpc.emit(NLI_RPC_EVENTS.state, state),

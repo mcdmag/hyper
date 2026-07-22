@@ -43,14 +43,18 @@ const LEGAL_TRANSITIONS: Readonly<Record<NliLifecycleStatus, readonly NliLifecyc
 const ERROR_MESSAGES: Readonly<Record<NliErrorCode, string>> = Object.freeze({
   NLI_AUTH_REQUIRED: 'Sign in with ChatGPT to ask Codex for command options.',
   NLI_CANCELLED: 'Natural-language assistance was cancelled.',
+  NLI_CODEX_CRASHED: 'Codex stopped unexpectedly. Try the request again.',
   NLI_CODEX_INCOMPATIBLE: 'This Codex installation is not compatible with Hyper assistance.',
+  NLI_CODEX_MISSING: 'Install Codex or configure its executable path to use natural-language assistance.',
   NLI_KEYRING_UNAVAILABLE: 'Secure credential storage is unavailable.',
   NLI_OFFLINE: 'Codex could not be reached. Check the connection and try again.',
   NLI_PRIVACY_REQUIRED: 'Review the privacy notice before sharing this failed command.',
   NLI_PROVIDER_FAILED: 'Codex could not prepare command options.',
+  NLI_RATE_LIMIT: 'Codex is temporarily rate limited. Try again later.',
   NLI_STALE: 'The terminal context changed. Run the request again.',
   NLI_TIMEOUT: 'Codex took too long to respond.',
   NLI_UNSUPPORTED_SHELL: 'Automatic assistance is available only in supported PowerShell sessions.',
+  NLI_USERDATA_UNWRITABLE: 'Hyper could not prepare private storage for Codex assistance.',
   NLI_VALIDATION_FAILED: 'Codex returned a response Hyper could not safely use.'
 });
 

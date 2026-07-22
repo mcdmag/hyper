@@ -18,14 +18,18 @@ export type NliRiskLevel = 'low' | 'medium' | 'high';
 export type NliErrorCode =
   | 'NLI_AUTH_REQUIRED'
   | 'NLI_CANCELLED'
+  | 'NLI_CODEX_CRASHED'
   | 'NLI_CODEX_INCOMPATIBLE'
+  | 'NLI_CODEX_MISSING'
   | 'NLI_KEYRING_UNAVAILABLE'
   | 'NLI_OFFLINE'
   | 'NLI_PRIVACY_REQUIRED'
   | 'NLI_PROVIDER_FAILED'
+  | 'NLI_RATE_LIMIT'
   | 'NLI_STALE'
   | 'NLI_TIMEOUT'
   | 'NLI_UNSUPPORTED_SHELL'
+  | 'NLI_USERDATA_UNWRITABLE'
   | 'NLI_VALIDATION_FAILED';
 
 export interface ShellSemanticEvent {
@@ -294,7 +298,11 @@ export interface NliClock {
 }
 
 export interface NliChildProcessFactory {
-  spawn(executable: string, args: readonly string[], options: SpawnOptionsWithoutStdio): ChildProcessWithoutNullStreams;
+  spawn(
+    executable: string,
+    args: readonly string[],
+    options: SpawnOptionsWithoutStdio & {readonly stdio: 'pipe'}
+  ): ChildProcessWithoutNullStreams;
 }
 
 export interface NliNonceSource {

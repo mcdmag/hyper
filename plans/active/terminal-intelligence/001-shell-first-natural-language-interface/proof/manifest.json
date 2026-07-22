@@ -19,6 +19,24 @@
       "status": "pending",
       "deferReason": "Task 00 has no rendered UI; visual mockups and implemented screenshots are produced in Tasks 01, 06, and 08.",
       "createdInTask": "Task 00: Establish contracts, configuration, and seams"
+    },
+    {
+      "id": "e2e:electron-main-nli-provider:codex-oauth-and-hardened-proposal-provider",
+      "kind": "e2e",
+      "surface": "electron-main-nli-provider",
+      "flow": "Codex OAuth and hardened proposal provider",
+      "status": "pending",
+      "deferReason": "Task 04 has exhaustive fake-child tests and a real Codex 0.144.6 protocol smoke. The packaged end-to-end OAuth/proposal flow is intentionally verified with the full renderer/main and hidden-child harness in Task 08 before merge.",
+      "createdInTask": "Task 04: Add the hardened Codex OAuth provider"
+    },
+    {
+      "id": "visual:per-pane-nli-panel:codex-oauth-and-hardened-proposal-provider",
+      "kind": "visual",
+      "surface": "per-pane-nli-panel",
+      "flow": "Codex OAuth and hardened proposal provider",
+      "status": "pending",
+      "deferReason": "Task 04 is Electron-main only; Task 06 renders authentication/provider states and Task 08 captures the packaged flow.",
+      "createdInTask": "Task 04: Add the hardened Codex OAuth provider"
     }
   ]
 }

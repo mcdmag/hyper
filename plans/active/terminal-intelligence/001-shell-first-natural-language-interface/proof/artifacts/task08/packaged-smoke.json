@@ -1,30 +1,30 @@
 ﻿{
-    "binary":  "E:\\repo\\hyper\\.cue\\worktrees\\terminal-intelligence\\001-shell-first-natural-language-interface\\dist\\win-unpacked\\Hyper.exe",
-    "fixture":  "E:\\repo\\hyper\\.cue\\worktrees\\terminal-intelligence\\001-shell-first-natural-language-interface\\test\\fixtures\\nli\\fake-provider-e2e.jsonl",
-    "rootProcessId":  27000,
-    "rootWindowVisible":  true,
-    "childProcesses":  [
-                           {
-                               "id":  29768,
-                               "name":  "Hyper.exe",
-                               "executable":  "E:\\repo\\hyper\\.cue\\worktrees\\terminal-intelligence\\001-shell-first-natural-language-interface\\dist\\win-unpacked\\Hyper.exe"
-                           },
-                           {
-                               "id":  39852,
-                               "name":  "Hyper.exe",
-                               "executable":  "E:\\repo\\hyper\\.cue\\worktrees\\terminal-intelligence\\001-shell-first-natural-language-interface\\dist\\win-unpacked\\Hyper.exe"
-                           },
-                           {
-                               "id":  32824,
-                               "name":  "Hyper.exe",
-                               "executable":  "E:\\repo\\hyper\\.cue\\worktrees\\terminal-intelligence\\001-shell-first-natural-language-interface\\dist\\win-unpacked\\Hyper.exe"
-                           }
-                       ],
-    "childWindows":  [
+  "binary":  "E:\\repo\\hyper\\.cue\\worktrees\\terminal-intelligence\\001-shell-first-natural-language-interface\\dist\\win-unpacked\\Hyper.exe",
+  "fixture":  "E:\\repo\\hyper\\.cue\\worktrees\\terminal-intelligence\\001-shell-first-natural-language-interface\\test\\fixtures\\nli\\fake-provider-e2e.jsonl",
+  "rootProcessId":  27000,
+  "rootWindowVisible":  true,
+  "childProcesses":  [
+    {
+      "id":  29768,
+      "name":  "Hyper.exe",
+      "executable":  "E:\\repo\\hyper\\.cue\\worktrees\\terminal-intelligence\\001-shell-first-natural-language-interface\\dist\\win-unpacked\\Hyper.exe"
+    },
+    {
+      "id":  39852,
+      "name":  "Hyper.exe",
+      "executable":  "E:\\repo\\hyper\\.cue\\worktrees\\terminal-intelligence\\001-shell-first-natural-language-interface\\dist\\win-unpacked\\Hyper.exe"
+    },
+    {
+      "id":  32824,
+      "name":  "Hyper.exe",
+      "executable":  "E:\\repo\\hyper\\.cue\\worktrees\\terminal-intelligence\\001-shell-first-natural-language-interface\\dist\\win-unpacked\\Hyper.exe"
+    }
+  ],
+  "childWindows":  [
 
-                     ],
-    "realHyperUntouched":  true,
-    "realCodexUntouched":  true,
-    "descendantsExited":  true,
-    "tempRemoved":  true
+  ],
+  "realHyperUntouched":  true,
+  "realCodexUntouched":  true,
+  "descendantsExited":  true,
+  "tempRemoved":  true
 }

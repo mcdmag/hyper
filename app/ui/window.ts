@@ -3,7 +3,7 @@ import {isAbsolute, normalize, sep} from 'path';
 import {URL, fileURLToPath} from 'url';
 
 import {app, BrowserWindow, shell, Menu} from 'electron';
-import type {BrowserWindowConstructorOptions} from 'electron';
+import type {BrowserWindowConstructorOptions, IpcMainEvent} from 'electron';
 
 import {enable as remoteEnable} from '@electron/remote/main';
 import isDev from 'electron-is-dev';
@@ -19,6 +19,7 @@ import {icon, homeDirectory} from '../config/paths';
 import {CodexAppServerProvider} from '../nli/codex-app-server';
 import {cryptoNonceSource, nodeChildProcessFactory, systemClock} from '../nli/dependencies';
 import {NLI_RPC_EVENTS, NLI_SESSION_EVENTS} from '../nli/events';
+import {executeApprovedCommand} from '../nli/execution';
 import {collectNliGitMetadata} from '../nli/git-metadata';
 import {createNliPreferencesStore} from '../nli/preferences';
 import {NliService} from '../nli/service';
@@ -296,7 +297,23 @@ export function newWindow(
       }
     }
   });
-  rpc.on(NLI_RPC_EVENTS.cancel, (request) => {
+  const isCurrentNliSender = (event: IpcMainEvent) =>
+    !window.isDestroyed() && !event.sender.isDestroyed() && event.sender === window.webContents;
+
+  rpc.onWithEvent(NLI_RPC_EVENTS.approve, (event, request) => {
+    executeApprovedCommand({
+      request,
+      identity: {windowId: window.id, rendererId: event.sender.id},
+      service: nliService,
+      getSession: (sessionUid) => sessions.get(sessionUid),
+      isRendererCurrent: () => isCurrentNliSender(event),
+      restoreTerminalFocus: (sessionUid) => {
+        rpc.emit(NLI_RPC_EVENTS.focusTerminal, {sessionUid});
+      }
+    });
+  });
+  rpc.onWithEvent(NLI_RPC_EVENTS.cancel, (event, request) => {
+    if (!isCurrentNliSender(event)) return;
     nliService.cancel(request);
   });
   rpc.on(NLI_RPC_EVENTS.cancelLogin, ({sessionUid}) => {
@@ -307,7 +324,8 @@ export function newWindow(
   rpc.on(NLI_RPC_EVENTS.clarify, (request) => {
     void nliService.clarify(request);
   });
-  rpc.on(NLI_RPC_EVENTS.edit, (request) => {
+  rpc.onWithEvent(NLI_RPC_EVENTS.edit, (event, request) => {
+    if (!isCurrentNliSender(event)) return;
     nliService.edit(request);
   });
   rpc.on(NLI_RPC_EVENTS.privacy, ({sessionUid, preferences}) => {

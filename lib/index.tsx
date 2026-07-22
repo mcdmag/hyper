@@ -111,6 +111,10 @@ rpc.on('nli setup req', () => {
   store_.dispatch(nliActions.openNliSetup());
 });
 
+rpc.on('nli terminal focus', ({sessionUid}) => {
+  window.focusActiveTerm(sessionUid);
+});
+
 rpc.on('termgroup close req', () => {
   store_.dispatch(termGroupActions.exitActiveTermGroup());
 });

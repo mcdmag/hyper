@@ -543,7 +543,7 @@ test('provider failures expose only typed display-safe diagnostics', async (t) =
   t.deepEqual(Object.keys(harness.diagnostics[0]).sort(), ['code', 'component', 'correlationId', 'severity']);
 });
 
-test('legal lifecycle table makes sent, cancelled, error, and stale terminal', (t) => {
+test('legal lifecycle table blocks a new detection after every completed state', (t) => {
   t.true(canTransitionNliState('idle', 'detected'));
   t.true(canTransitionNliState('review', 'approving'));
   t.true(canTransitionNliState('approving', 'sent'));
@@ -715,6 +715,51 @@ test('generated command failures are tagged so they cannot recursively invoke AI
 
   t.is(harness.providerCreations, 0);
   t.deepEqual(harness.states, []);
+});
+
+test('a generated lookup failure keeps terminal output authoritative and requires an explicit AI retry', async (t) => {
+  const harness = makeHarness({
+    privacyNoticeVersion: 1,
+    includeWorkingDirectory: false,
+    includeGitMetadata: false
+  });
+  harness.service.onCommandNotFound(makeEvent());
+  await flush();
+  await flush();
+  const review = harness.states.find(
+    (state): state is Extract<NliDisplayState, {status: 'review'}> => state.status === 'review'
+  )!;
+  const approval = {
+    sessionUid,
+    attemptId: review.attemptId,
+    planId: review.planId,
+    optionId: review.options[0].optionId,
+    editRevision: review.editRevision,
+    highRiskConfirmation: false
+  };
+  const decision = harness.service.approve(approval, {windowId: 10, rendererId: 20});
+  t.is(decision.status, 'authorized');
+  if (decision.status !== 'authorized') return;
+  harness.service.tagGeneratedWrite(sessionUid, decision.shellText);
+  t.true(harness.service.completeApproval(approval));
+
+  harness.service.onCommandNotFound(
+    makeEvent({
+      callbackId: 'generated-callback' as CallbackId,
+      historyId: 'generated-history',
+      submittedLine: decision.shellText
+    })
+  );
+  await flush();
+
+  const failure = harness.states.at(-1);
+  t.is(failure?.status === 'error' ? failure.code : undefined, 'NLI_GENERATED_COMMAND_FAILED');
+  t.is(harness.provider.interpretCalls, 1);
+
+  harness.service.retry({sessionUid, attemptId: review.attemptId});
+  await flush();
+  await flush();
+  t.is(harness.provider.interpretCalls, 2);
 });
 
 test('Git collection returns only the consented allowlist and never remote URLs', async (t) => {

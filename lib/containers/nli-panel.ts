@@ -1,3 +1,5 @@
+import type {ComponentType} from 'react';
+
 import {connect} from 'react-redux';
 
 import type {HyperDispatch, HyperState} from '../../typings/hyper';
@@ -44,4 +46,6 @@ const mapDispatchToProps = (dispatch: HyperDispatch, ownProps: NliPanelOwnProps)
   onRestoreTerminalFocus: () => window.focusActiveTerm(ownProps.sessionUid)
 });
 
-export default connect(mapStateToProps, mapDispatchToProps)(NliPanel);
+const NliPanelContainer: ComponentType<NliPanelOwnProps> = connect(mapStateToProps, mapDispatchToProps)(NliPanel);
+
+export default NliPanelContainer;

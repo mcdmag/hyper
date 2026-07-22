@@ -125,6 +125,7 @@ export type RendererEvents = {
   'nli state': NliDisplayState;
   'nli auth state': {sessionUid: SessionUid; auth: NliAuthState};
   'nli setup req': never;
+  'nli terminal focus': {sessionUid: SessionUid};
 };
 
 /**

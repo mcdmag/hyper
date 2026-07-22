@@ -73,6 +73,24 @@
       "status": "pending",
       "deferReason": "Task 06 passes deterministic mockup-to-built pixel comparison for disabled setup at 900x720 (1.36%) and single-proposal review at 320x720 (1.83%), with outputs under dist/tmp. Task 08 captures and commits packaged-app visual proof for the merge gate.",
       "createdInTask": "Task 06: Build the per-pane NLI review experience"
+    },
+    {
+      "id": "e2e:electron-main-nli-execution:approved-immutable-command-writes-exactly-once-to-original-pty-with-replay-stale-sender-closed-session-and-recursion-guards",
+      "kind": "e2e",
+      "surface": "electron-main-nli-execution",
+      "flow": "approved immutable command writes exactly once to original PTY with replay stale sender closed session and recursion guards",
+      "status": "pending",
+      "deferReason": "Task 07 has exhaustive fake-Session and service integration coverage. Task 08 builds the packaged Electron app and runs the deterministic fake-provider PowerShell E2E before merge.",
+      "createdInTask": "Task 07: Execute approved text once through the original PTY"
+    },
+    {
+      "id": "visual:per-pane-nli-panel:generated-command-failure-explicit-retry-and-unknown-pty-write-outcome-without-retry",
+      "kind": "visual",
+      "surface": "per-pane-nli-panel",
+      "flow": "generated command failure explicit retry and unknown PTY write outcome without retry",
+      "status": "pending",
+      "deferReason": "Task 07 provides renderer SSR assertions for both states. Task 08 captures the packaged per-pane states as committed visual proof before merge.",
+      "createdInTask": "Task 07: Execute approved text once through the original PTY"
     }
   ]
 }

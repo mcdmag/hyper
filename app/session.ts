@@ -382,6 +382,10 @@ No fallback available, please check the shell config.
     }
   }
 
+  isWritable(): boolean {
+    return Boolean(this.pty) && !this.ended;
+  }
+
   resize({cols, rows}: {cols: number; rows: number}) {
     if (this.pty) {
       try {

@@ -277,6 +277,34 @@ test('component exposes consent, clarification, retry, setup errors, edit, and r
   t.true(retry.includes('No suggestion was created'));
   t.true(retry.includes('Try again'));
 
+  const generatedFailure = render({
+    ...baseSession,
+    display: {
+      status: 'error',
+      sessionUid,
+      attemptId,
+      code: 'NLI_GENERATED_COMMAND_FAILED',
+      correlationId: 'generated-failure',
+      message: 'not recognized'
+    }
+  });
+  t.true(generatedFailure.includes('original terminal output is the source of truth'));
+  t.true(generatedFailure.includes('Try again'));
+
+  const unknownWrite = render({
+    ...baseSession,
+    display: {
+      status: 'error',
+      sessionUid,
+      attemptId,
+      code: 'NLI_WRITE_FAILED',
+      correlationId: 'unknown-write',
+      message: 'unknown'
+    }
+  });
+  t.true(unknownWrite.includes('cannot tell whether PowerShell received it'));
+  t.false(unknownWrite.includes('Try again'));
+
   const editable = render({...baseSession, display: reviewState(), editing: true, editText: 'git status'});
   t.true(editable.includes('<textarea'));
   t.true(editable.includes('git status'));

@@ -47,7 +47,7 @@ const LEGAL_TRANSITIONS: Readonly<Record<NliLifecycleStatus, readonly NliLifecyc
   review: ['approving', 'interpreting', 'cancelled', 'error', 'stale'],
   clarification: ['interpreting', 'cancelled', 'error', 'stale'],
   approving: ['sent', 'error', 'stale'],
-  sent: [],
+  sent: ['error'],
   cancelled: [],
   error: [],
   stale: []
@@ -59,16 +59,21 @@ const ERROR_MESSAGES: Readonly<Record<NliErrorCode, string>> = Object.freeze({
   NLI_CODEX_CRASHED: 'Codex stopped unexpectedly. Try the request again.',
   NLI_CODEX_INCOMPATIBLE: 'This Codex installation is not compatible with Hyper assistance.',
   NLI_CODEX_MISSING: 'Install Codex or configure its executable path to use natural-language assistance.',
+  NLI_GENERATED_COMMAND_FAILED:
+    'PowerShell did not recognize the approved command. Review the unchanged terminal output, then retry interpretation if you want another option.',
   NLI_KEYRING_UNAVAILABLE: 'Secure credential storage is unavailable.',
   NLI_OFFLINE: 'Codex could not be reached. Check the connection and try again.',
   NLI_PRIVACY_REQUIRED: 'Review the privacy notice before sharing this failed command.',
   NLI_PROVIDER_FAILED: 'Codex could not prepare command options.',
   NLI_RATE_LIMIT: 'Codex is temporarily rate limited. Try again later.',
+  NLI_SESSION_CLOSED: 'The original terminal session closed before Hyper could write the approved command.',
   NLI_STALE: 'The terminal context changed. Run the request again.',
   NLI_TIMEOUT: 'Codex took too long to respond.',
   NLI_UNSUPPORTED_SHELL: 'Automatic assistance is available only in supported PowerShell sessions.',
   NLI_USERDATA_UNWRITABLE: 'Hyper could not prepare private storage for Codex assistance.',
-  NLI_VALIDATION_FAILED: 'Codex returned a response Hyper could not safely use.'
+  NLI_VALIDATION_FAILED: 'Codex returned a response Hyper could not safely use.',
+  NLI_WRITE_FAILED:
+    'Hyper made one write attempt to the original terminal, but PowerShell may or may not have received it. Check terminal output before doing anything else.'
 });
 
 interface ServiceAttempt {
@@ -81,6 +86,8 @@ interface ServiceAttempt {
   activePlanId?: PlanId;
   clarificationPlan?: ClarificationPlan;
   commandPlan?: ImmutableCommandPlan;
+  approvalConsumed?: boolean;
+  retryBlocked?: boolean;
 }
 
 export interface NliServiceOptions {
@@ -134,7 +141,14 @@ export class NliService {
       return;
     }
     const snapshot = this.options.getSessionSnapshot(event.sessionUid);
-    if (!snapshot || !isPowerShell(snapshot.shell) || this.consumeGeneratedAttempt(event) || this.isDuplicate(event)) {
+    if (!snapshot || !isPowerShell(snapshot.shell)) {
+      return;
+    }
+    if (this.consumeGeneratedAttempt(event)) {
+      this.reportGeneratedCommandFailure(event);
+      return;
+    }
+    if (this.isDuplicate(event)) {
       return;
     }
 
@@ -153,6 +167,10 @@ export class NliService {
       submittedLine,
       expiresAt: this.options.clock.now() + 30000
     });
+  }
+
+  clearGeneratedWrite(sessionUid: SessionUid): void {
+    this.generatedAttempts.delete(sessionUid);
   }
 
   private startAttempt(event: ShellSemanticEvent, shellIdentity: string): void {
@@ -324,8 +342,46 @@ export class NliService {
       return {status: 'rejected'};
     }
     const decision = attempt.commandPlan.authorize(request, identity);
-    if (decision.status === 'authorized') this.transition(attempt, 'approving');
+    if (decision.status === 'authorized') {
+      attempt.approvalConsumed = true;
+      this.transition(attempt, 'approving');
+    }
     return decision;
+  }
+
+  completeApproval(request: NliApprovalRequest): boolean {
+    const attempt = this.match(request);
+    if (
+      !attempt ||
+      attempt.status !== 'approving' ||
+      attempt.activePlanId !== request.planId ||
+      !attempt.approvalConsumed
+    ) {
+      return false;
+    }
+    this.transition(attempt, 'sent');
+    attempt.abortController.abort();
+    this.options.emitState({
+      status: 'sent',
+      sessionUid: attempt.attempt.sessionUid,
+      attemptId: attempt.attempt.attemptId
+    });
+    return true;
+  }
+
+  failApproval(request: NliApprovalRequest, code: 'NLI_SESSION_CLOSED' | 'NLI_STALE' | 'NLI_WRITE_FAILED'): boolean {
+    const attempt = this.match(request);
+    if (
+      !attempt ||
+      attempt.status !== 'approving' ||
+      attempt.activePlanId !== request.planId ||
+      !attempt.approvalConsumed
+    ) {
+      return false;
+    }
+    attempt.retryBlocked = true;
+    this.finish(attempt, code === 'NLI_STALE' ? 'stale' : 'error', code);
+    return true;
   }
 
   reject(request: NliPlanRequest): boolean {
@@ -346,7 +402,12 @@ export class NliService {
 
   retry(request: NliAttemptRequest): void {
     const prior = this.match(request);
-    if (!this.options.enabled() || !prior || (prior.status !== 'error' && prior.status !== 'cancelled')) {
+    if (
+      !this.options.enabled() ||
+      !prior ||
+      prior.retryBlocked ||
+      (prior.status !== 'error' && prior.status !== 'cancelled')
+    ) {
       return;
     }
     this.attempts.delete(request.sessionUid);
@@ -673,6 +734,23 @@ export class NliService {
     if (generated.submittedLine !== event.submittedLine) return false;
     this.generatedAttempts.delete(event.sessionUid);
     return true;
+  }
+
+  private reportGeneratedCommandFailure(event: ShellSemanticEvent): void {
+    const attempt = this.attempts.get(event.sessionUid);
+    if (!attempt || attempt.status !== 'sent') return;
+    this.transition(attempt, 'error');
+    const code = 'NLI_GENERATED_COMMAND_FAILED' as const;
+    const correlationId = this.options.nonceSource.create(12);
+    this.options.emitState({
+      status: 'error',
+      sessionUid: attempt.attempt.sessionUid,
+      attemptId: attempt.attempt.attemptId,
+      code,
+      correlationId,
+      message: ERROR_MESSAGES[code]
+    });
+    this.options.emitDiagnostic?.({severity: 'error', code, component: 'service', correlationId});
   }
 
   private pruneDedupe(now: number): void {

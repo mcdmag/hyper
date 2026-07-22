@@ -75,6 +75,24 @@ const errorCopy = (display: Extract<NliDisplayState, {status: 'error' | 'stale'}
         heading: 'The terminal context changed',
         body: 'The session, working directory, shell, selected option, or edit revision changed. The old approval cannot be replayed.'
       };
+    case 'NLI_SESSION_CLOSED':
+      return {
+        eyebrow: 'Terminal closed',
+        heading: 'The approved command was not sent',
+        body: 'The original terminal session closed before Hyper could write to it. Nothing was retried.'
+      };
+    case 'NLI_GENERATED_COMMAND_FAILED':
+      return {
+        eyebrow: 'PowerShell command failed',
+        heading: 'The approved command was not recognized',
+        body: 'The original terminal output is the source of truth. Hyper will not invoke Codex again unless you choose Try again.'
+      };
+    case 'NLI_WRITE_FAILED':
+      return {
+        eyebrow: 'Terminal write outcome unknown',
+        heading: 'Check the original terminal before continuing',
+        body: 'Hyper made one synchronous write attempt, but cannot tell whether PowerShell received it. The command will not be retried.'
+      };
     case 'NLI_OFFLINE':
     case 'NLI_RATE_LIMIT':
     case 'NLI_TIMEOUT':
@@ -550,6 +568,7 @@ const NliPanel = (props: NliPanelProps) => {
     );
   } else if (display?.status === 'error' || display?.status === 'stale') {
     const copy = errorCopy(display);
+    const approvalWasConsumed = display.code === 'NLI_SESSION_CLOSED' || display.code === 'NLI_WRITE_FAILED';
     content = (
       <>
         {panelHeader(copy.eyebrow, copy.heading, display.status === 'stale' ? 'Stale' : 'Error', true)}
@@ -557,9 +576,11 @@ const NliPanel = (props: NliPanelProps) => {
           {copy.body}
         </div>
         <div className="nli_actions">
-          <button type="button" className="nli_primary" onClick={props.onRetry}>
-            Try again
-          </button>
+          {approvalWasConsumed ? null : (
+            <button type="button" className="nli_primary" onClick={props.onRetry}>
+              Try again
+            </button>
+          )}
           <button type="button" onClick={close}>
             Dismiss
           </button>

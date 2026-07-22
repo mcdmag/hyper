@@ -106,14 +106,17 @@ The feature is off by default, capability-checked, cancelable, and observable th
   - Incrementally parses bounded private frames, preserves all non-frame bytes exactly, and never throws on PTY data.
 - interface NliProvider
   - getAuthStatus, login, cancelLogin, logout, interpret(context, signal), dispose. Implementations validate and return only NliProviderResult values.
-- NliService.onCommandNotFound(event), approve(request, identity), edit(request), cancel(request), disposeSession(uid)
+- NliService.onCommandNotFound(event), approve(request, identity), completeApproval(request), failApproval(request, code), edit(request), cancel(request), disposeSession(uid)
   - Owns lifecycle, privacy/auth gating, immutable plans, stale checks, and execution authorization.
+- executeApprovedCommand(options: ExecuteApprovedCommandOptions): ApprovedCommandExecutionResult
+  - Synchronously consumes main-owned authorization and makes at most one write attempt against the original session, with no await or automatic retry.
 - validateCommandPlan is the bounded provider-output validator and returns only NliProviderResult or a typed validation error; it never coerces prose.
 - classifyCommandRisk(shellText: string): LocalRiskAssessment
   - Deterministic advisory classification independent of model labels.
 - Renderer actions openNliSetup, dismissNli, selectNliOption, beginNliEdit, updateNliEdit, cancelNliEdit, saveNliEdit, approveNli, rejectNli, clarifyNli, retryNli, loginNli, logoutNli, saveNliPrivacy, resetNliPrivacy.
 - NliPanel props are display state and callbacks only; command authority remains in main.
 - Existing Session.write(data: string) remains the sole PTY write primitive used for both user and approved NLI bytes.
+- Session.isWritable(): boolean exposes only whether that original PTY can currently accept the approved write.
 
 ### Internals
 

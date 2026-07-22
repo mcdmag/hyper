@@ -12,6 +12,7 @@ export const NLI_RPC_EVENTS = {
   retry: 'nli retry',
   status: 'nli status',
   authState: 'nli auth state',
+  focusTerminal: 'nli terminal focus',
   setup: 'nli setup req',
   state: 'nli state'
 } as const;

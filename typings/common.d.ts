@@ -5,7 +5,14 @@ import type {IpcMain, IpcRenderer} from 'electron';
 import type parseUrl from 'parse-url';
 
 import type {configOptions} from './config';
-import type {NliApprovalRequest, NliDisplayState, NliEditRequest, NliPlanRequest, SessionUid} from './nli';
+import type {
+  NliApprovalRequest,
+  NliAttemptRequest,
+  NliClarificationRequest,
+  NliDisplayState,
+  NliEditRequest,
+  SessionUid
+} from './nli';
 
 export type Session = {
   uid: string;
@@ -47,11 +54,12 @@ export type MainEvents = {
   resize: {uid: string; cols: number; rows: number};
   unmaximize: never;
   'nli approve': NliApprovalRequest;
-  'nli cancel': NliPlanRequest;
+  'nli cancel': NliAttemptRequest;
+  'nli clarify': NliClarificationRequest;
   'nli edit': NliEditRequest;
   'nli login': {sessionUid: SessionUid};
   'nli logout': {sessionUid: SessionUid};
-  'nli retry': NliPlanRequest;
+  'nli retry': NliAttemptRequest;
 };
 
 export type RendererEvents = {

@@ -218,6 +218,15 @@ export interface NliPlanRequest {
   readonly planId: PlanId;
 }
 
+export interface NliAttemptRequest {
+  readonly sessionUid: SessionUid;
+  readonly attemptId: AttemptId;
+}
+
+export interface NliClarificationRequest extends NliPlanRequest {
+  readonly optionId: OptionId;
+}
+
 export interface PreparedShellIntegration {
   readonly shell: string;
   readonly args: readonly string[];
@@ -238,10 +247,12 @@ export type ShellIntegrationDecision =
       readonly family: ShellFamily;
     };
 
+export type SupportedShellIntegrationDecision = Extract<ShellIntegrationDecision, {readonly supported: true}>;
+
 export interface ShellIntegrationAdapter {
   readonly family: ShellFamily;
   detect(shell: string, args: readonly string[], enabled: boolean): ShellIntegrationDecision;
-  prepare(sessionUid: SessionUid, decision: ShellIntegrationDecision): Promise<PreparedShellIntegration>;
+  prepare(sessionUid: SessionUid, decision: SupportedShellIntegrationDecision): Promise<PreparedShellIntegration>;
 }
 
 export interface NliProvider {

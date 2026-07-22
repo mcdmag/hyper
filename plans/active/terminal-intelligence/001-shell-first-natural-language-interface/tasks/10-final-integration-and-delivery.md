@@ -12,7 +12,7 @@ Run the complete feature as a user would, close remaining gaps, and deliver it t
 - [ ] Exercise valid, valid-failing, natural-language missing command, alternatives, edit/reapproval, reject, sign-in/cancel, offline, generated failure, two panes, and unsupported cmd.exe with deterministic automation plus the optional live smoke.
 - [ ] Exercise the unpacked Windows app to confirm one Hyper app, hidden Codex child, and no dangling console/process.
 - [ ] Update understand.md and summary.md only after all tasks pass.
-- [ ] Commit intentionally, push, open a PR explicitly against dev, merge after checks, and fast-forward local dev while preserving unrelated .cue/memory content.
+- [ ] Run git fetch origin dev; push the feature branch; run gh pr create --base dev --head feature/terminal-intelligence/001-shell-first-natural-language-interface; run gh pr checks --watch; merge that PR into dev; then from E:\repo\hyper run git pull --ff-only origin dev while preserving unrelated .cue/memory content.
 
 ## Acceptance
 
@@ -28,5 +28,5 @@ Run the complete feature as a user would, close remaining gaps, and deliver it t
 - [ ] Run: pnpm exec electron-builder --win dir --x64 --publish never
 - [ ] Run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts/test-nli-packaged.ps1
 - [ ] Run: pnpm test:e2e
-- [ ] Run: gh pr view --json baseRefName,headRefName,state,mergeCommit
-- [ ] Run: git merge-base --is-ancestor origin/dev dev
+- [ ] Run: gh pr view --json baseRefName,headRefName,state,mergeCommit and assert baseRefName=dev plus merged state.
+- [ ] Run from E:\repo\hyper: git fetch origin dev; compare git rev-parse dev to git rev-parse origin/dev for exact equality; verify the PR mergeCommit is an ancestor of origin/dev.

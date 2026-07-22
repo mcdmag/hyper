@@ -9,11 +9,12 @@ Use Codex's official browser sign-in and app-server protocol to generate proposa
 
 - [ ] Implement CodexAppServerProvider in Electron main using child_process.spawn with shell:false, windowsHide:true, piped stdio, bounded JSONL parsing, requestTimeoutMs cancellation, and lifecycle cleanup.
 - [ ] Use a Hyper-specific CODEX_HOME under an app.getPath('userData') subdirectory, an empty app-controlled cwd, and a newly constructed child env allowlisting only PATH/PATHEXT, SystemRoot/WINDIR, HOME/USERPROFILE, APPDATA/LOCALAPPDATA, TEMP/TMP, LANG/LC_*, XDG_RUNTIME_DIR/DBUS_SESSION_BUS_ADDRESS where present, and the private CODEX_HOME; never spread process.env.
-- [ ] Generate hardened non-secret config using only capability-verified official keys: keyring credentials, shell tool/apps/hooks/multi-agent/remote plugins/memories/web search disabled, no MCP/project/skill inheritance; fail closed if the installed version cannot honor isolation.
+- [ ] Commit the codex-cli 0.144.6 generated v2 protocol subset fixture and require version >=0.144.6 plus initialize, account/read, account/login/start, account/logout, thread/start, turn/start, turn/interrupt, and outputSchema compatibility.
+- [ ] Write the exact hardened config from plan.md, start in the empty cwd, read back effective config/capabilities, and fail with NLI_CODEX_INCOMPATIBLE if keyring-only/tool-free/read-only/no-web isolation cannot be proven.
 - [ ] Implement initialize, account/read, account/login/start with ChatGPT browser OAuth, login cancel/completion, account/logout, ephemeral thread/start, turn/start with strict outputSchema, turn interrupt, and streamed completion/error handling.
 - [ ] Validate login URLs as HTTPS before opening; never implement token exchange or read/copy auth.json.
 - [ ] Reject and abort every server request for command/file/permission/MCP/tool/additional-input action before dispatch; capability-prove tool isolation at startup and fail closed if unavailable.
-- [ ] Capability-check executable/protocol and return safe typed missing/incompatible/offline/rate-limit/401/crash errors without logging stdout/stderr content.
+- [ ] Capability-check executable/protocol and return safe typed missing/incompatible/keyring-unavailable/userData-unwritable/offline/rate-limit/401/crash errors without logging stdout/stderr content.
 - [ ] Keep provider env local to the child and prove CODEX_HOME/credentials never reach terminal sessions.
 - [ ] Add test/unit/nli-codex-app-server.test.ts with a scripted fake child and threat-model fixtures.
 

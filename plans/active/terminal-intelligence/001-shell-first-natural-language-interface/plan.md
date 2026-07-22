@@ -8,7 +8,7 @@ The first supported automatic adapter is interactive PowerShell 5.1 and PowerShe
 
 ## Product behavior
 
-1. With NLI disabled or an unsupported shell, Hyper behaves exactly as it does today.
+1. With NLI disabled or an unsupported shell, command execution behaves exactly as it does today. A Tools -> Natural Language Setup command is always available and never intercepts terminal input.
 2. With NLI enabled on supported PowerShell, user input is written to the PTY immediately with no provider initialization or network work.
 3. A PowerShell command lookup hook preserves any existing handler and emits a nonce-tagged private OSC event only when lookup remains unresolved.
 4. Hyper renders the ordinary shell error first, correlates one semantic failure to one session attempt, then lazily asks Codex for bounded structured command options.
@@ -74,19 +74,25 @@ The implementation extends existing seams instead of adding a second terminal pa
 
 ## Release and compatibility
 
-The feature defaults off. When enabled, startup instrumentation is attempted only for recognized interactive PowerShell argument sets. Conflicting -File, -Command, or -EncodedCommand sessions remain untouched. Missing/incompatible Codex shows setup guidance after fallback, never a separate terminal window. The provider executable path is configurable; protocol capability is checked at runtime and incompatible versions fail with a clear message.
+The feature defaults off. Tools -> Natural Language Setup opens a non-modal panel with the exact config block, an Open Hyper Configuration action, current shell support, privacy summary, and Codex status; it must work while the feature is disabled. When enabled on an unsupported session, a one-time non-blocking banner explains that automatic fallback requires interactive PowerShell and offers Open Hyper Configuration. No terminal keystroke is classified or intercepted to produce this guidance.
+
+When enabled, startup instrumentation is attempted only for recognized interactive PowerShell argument sets. Conflicting -File, -Command, or -EncodedCommand sessions remain untouched. Missing/incompatible Codex shows setup guidance after fallback, never a separate terminal window. The provider executable path is configurable; protocol capability is checked at runtime and incompatible versions fail with a clear message.
 
 ## State contracts
 
-- Shell event: windowId, sessionUid, PowerShell HistoryId when available, callbackId, reason=command-not-found, submittedLine, shellFamily, shellVersion, nonce proof. The marker arrives before PowerShell renders its ordinary error. Session therefore holds the semantic event, writes subsequent visible bytes to DataBatcher, synchronously flushes that batch through the existing session-data listener, and only then emits the semantic event. If no visible bytes follow within 250 ms, it cancels the pending event rather than showing assistance before the promised shell error.
-- Interpretation context: attemptId plus the shell event, OS, and either a disclosed cwd or an omitted cwd. Scrollback, history, environment, files, clipboard, and credentials never pass this boundary.
+- Shell event: windowId, sessionUid, PowerShell HistoryId when available, callbackId, reason=command-not-found, submittedLine, shellFamily, shellVersion, current provider path, and nonce proof. Main immediately hashes the normalized path into cwdFingerprint and discards the raw path unless disclosure is enabled. The marker arrives before PowerShell renders its ordinary error. Session therefore holds the semantic event, writes subsequent visible bytes to DataBatcher, synchronously flushes that batch through the existing session-data listener, and only then emits the semantic event. If no visible bytes follow within 250 ms, it cancels the pending event rather than showing assistance before the promised shell error.
+- Interpretation context: attemptId plus the shell event, OS, cwdFingerprint, and either a disclosed cwd or an omitted cwd. After consent, optional Git metadata may include only isRepository, branch, hasStaged, hasUnstaged, hasUntracked, hasRemote, and ghAvailable; never paths, filenames, diffs, commit contents, or remote URLs. Scrollback, history, environment, files, clipboard, and credentials never pass this boundary.
 - Display proposal: display-safe summary/options/risks plus opaque planId and optionId. Authoritative command bytes and digests remain main-only.
 - Approval request: windowId, renderer/webContents identity, sessionUid, attemptId, planId, optionId, editRevision, and highRiskConfirmation; no command text. Main revalidates every field, atomically consumes the matching immutable approval, then performs one synchronous Session.write call with no intervening await. It never retries a consumed plan automatically; this is a single-write-attempt guarantee, not a claim that the shell executed after an OS/PTY failure.
 - Legal lifecycle: idle -> detected -> privacy/auth-required -> interpreting -> review -> approving -> sent, with cancel/error/stale terminal branches. A newer attempt, edit, cwd/shell change, session close, replay, or consumed approval makes the previous plan stale.
 
 ## Configuration and migration
 
-Add the root naturalLanguageInterface object with enabled=false, codexExecutable="codex", requestTimeoutMs=30000, maxInputChars=4096, maxOptions=3, and includeWorkingDirectory=false. Clamp numeric values to documented safe bounds. Existing configs inherit these additive defaults through Hyper's current config merge; no migration script or config rewrite is allowed.
+Add the root naturalLanguageInterface object with enabled=false, codexExecutable="codex", requestTimeoutMs=30000, maxInputChars=4096, maxOptions=3, includeWorkingDirectory=false, and includeGitMetadata=false. Clamp numeric values to documented safe bounds. Existing configs inherit these additive defaults through Hyper's current config merge; no migration script or config rewrite is allowed.
+
+Privacy consent is versioned non-secret per-install state at app.getPath('userData')/nli/preferences.json: privacyNoticeVersion=1 plus cwd/Git disclosure choices. It is shared across profiles/windows, never stores input or command text, and can be revoked from Natural Language Setup. Revocation cancels active turns and returns to consent-required. Keyring unavailable, userData/CODEX_HOME write failure, and keyring-only policy rejection produce distinct accessible errors with no plaintext fallback.
+
+Codex support starts at codex-cli 0.144.6 and still requires capability compatibility with the committed generated v2 protocol subset. Write exactly cli_auth_credentials_store="keyring", approval_policy="never", sandbox_mode="read-only", web_search="disabled"; under features set shell_tool=false, apps=false, hooks=false, multi_agent=false, remote_plugin=false, memories=false, goals=false, and shell_snapshot=false. The dedicated CODEX_HOME contains no MCP servers, skills, plugins, hooks, memories, or project instructions, and the process cwd is an empty app-controlled directory. Startup reads back effective configuration/capabilities and fails with NLI_CODEX_INCOMPATIBLE if any required isolation or initialize/account/thread/turn method is unavailable. Every server tool/approval request is denied before dispatch.
 
 ## Threat model, errors, and diagnostics
 

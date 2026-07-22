@@ -5,6 +5,8 @@ mode: lightweight
 epic: desktop-reliability
 created: 2026-07-22
 promoted_to: null
+status: completed
+completed: 2026-07-22
 ---
 
 ## Problem
@@ -112,4 +114,4 @@ No visual mockup is required because the feature adds a JSON configuration contr
 
 ## Commit Ref
 
-Plan commit: `74e11732`. Implementation commits must include `Spec-ref: 002-external-link-browser-default`; delivery evidence records the final merge commit in the generated summary.
+5fdfb8c29d080db68fb2083067d13a315b40336a

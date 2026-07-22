@@ -5,6 +5,8 @@ mode: lightweight
 epic: desktop-reliability
 created: 2026-07-22
 promoted_to: null
+status: completed
+completed: 2026-07-22
 ---
 
 ## Problem

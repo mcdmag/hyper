@@ -13,4 +13,4 @@ export const getRootGroups = createSelector(getTermGroups, (termGroups) =>
 export const getNliSession = (state: HyperState, sessionUid: SessionUid) => state.nli.sessions[sessionUid];
 
 export const isNliShellSupported = (shell: string | null) =>
-  typeof shell === 'string' && /^(?:powershell|pwsh)(?:\.exe)?$/i.test(shell);
+  typeof shell === 'string' && /(?:^|[\\/])(?:powershell|pwsh)(?:\.exe)?$/i.test(shell);

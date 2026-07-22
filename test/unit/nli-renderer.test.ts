@@ -20,6 +20,7 @@ import {
   NLI_UPDATE_EDIT
 } from '../../lib/constants/nli';
 import nliReducer from '../../lib/reducers/nli';
+import {isNliShellSupported} from '../../lib/selectors';
 import type {NliDisplayState, NliRendererSessionState, OptionId, PlanId, SessionUid} from '../../typings/nli';
 
 const sessionUid = 'session-renderer' as SessionUid;
@@ -58,6 +59,20 @@ const reviewState = (): Extract<NliDisplayState, {status: 'review'}> => ({
 });
 
 const action = (state: NliDisplayState) => ({type: NLI_RECEIVE_STATE, state}) as const;
+
+test('shell support recognizes bare and absolute PowerShell executables', (t) => {
+  for (const shell of [
+    'pwsh',
+    'powershell.exe',
+    'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+    'C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe'
+  ]) {
+    t.true(isNliShellSupported(shell), shell);
+  }
+  for (const shell of [null, 'cmd.exe', 'C:\\tools\\not-pwsh.exe', 'pwsh.exe -NoLogo']) {
+    t.false(isNliShellSupported(shell), shell || 'null');
+  }
+});
 
 test('renderer state is disabled by default and setup remains available per pane', (t) => {
   let state = nliReducer(undefined, {type: '@@init'} as never);

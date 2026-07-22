@@ -112,4 +112,4 @@ Validated `NliProviderResult` values become an `ImmutableCommandPlan`. Renderer 
 
 7. What proves the release?
 
-   Lint plus 113 tests, production build, Windows unpacked package, 8 Electron journeys, 10 verified Cue proof obligations, sub-2% visual diffs, and the isolated one-app/no-dangling-process smoke.
+   Lint plus 114 tests, production build, Windows unpacked package, 8 Electron journeys, 10 verified Cue proof obligations, sub-2% visual diffs, and the isolated one-app/no-dangling-process smoke.

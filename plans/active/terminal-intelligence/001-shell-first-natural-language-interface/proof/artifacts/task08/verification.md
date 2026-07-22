@@ -4,7 +4,7 @@ Verified on Windows x64 on 2026-07-22 against the final unpacked application bui
 
 ## Automated gates
 
-- `pnpm test`: passed lint and 113 unit/integration tests. The suite includes executable PowerShell 7 and Windows PowerShell 5.1 node-pty seams, 10,000-dispatch latency tests, provider cold-path assertions, anti-spoofing, pane isolation, immutable approval, single-write-attempt behavior, and cross-window Privacy Reset/Logout fanout.
+- `pnpm test`: passed lint and 114 unit/integration tests. The suite includes executable PowerShell 7 and Windows PowerShell 5.1 node-pty seams, 10,000-dispatch latency tests, provider cold-path assertions, anti-spoofing, pane isolation, absolute PowerShell-path renderer support, immutable approval, single-write-attempt behavior, and cross-window Privacy Reset/Logout fanout.
 - `pnpm run build`: passed Webpack and both TypeScript builds.
 - `pnpm exec electron-builder --win dir --x64 --publish never`: passed and produced `dist/win-unpacked/Hyper.exe`.
 - `pnpm test:e2e`: passed 8 packaged Electron scenarios covering disabled setup, unsupported-shell guidance, privacy and fixture-backed ChatGPT sign-in, alternatives, clarification, edit/reapproval, high risk, cancellation, explicit retry, malformed output, stale input/cwd, original-PTY execution, focus recovery, failure states, and the 320px panel layout.

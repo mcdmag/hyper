@@ -8,7 +8,7 @@ flowchart LR
   W2[Hyper window service] --> C
   C --> R[Reset privacy or logout fanout]
   R --> S[All renderer sessions receive auth state]
-  F[Feature branch] --> T[113 tests + build + Windows package]
+  F[Feature branch] --> T[114 tests + build + Windows package]
   T --> E[8 Electron journeys + isolated packaged smoke]
   E --> P[10 Cue proof obligations verified]
   P --> D[PR to dev]

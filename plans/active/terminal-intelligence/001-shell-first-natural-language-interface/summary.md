@@ -28,7 +28,7 @@ Codex can only return structured proposals. Hyper validates and risk-labels them
 - Main-owned approval consumption and a synchronous, non-retried write through the original `Session.write`, including renderer identity, pane/shell/cwd/edit staleness checks and generated-command recursion suppression.
 - `NliWindowCoordinator` fanout so per-install Reset Privacy and Logout affect every live Hyper window and renderer session.
 - README and `docs/natural-language-interface.md` guidance for setup, support, privacy, OAuth/keyring behavior, errors, rollback, verification, and future shell adapters.
-- Deterministic fixtures, 113 unit/integration tests, 8 Electron journeys, visual comparisons, production build, unpacked Windows packaging, and an isolated one-app/no-dangling-process smoke script.
+- Deterministic fixtures, 114 unit/integration tests, 8 Electron journeys, visual comparisons, production build, unpacked Windows packaging, and an isolated one-app/no-dangling-process smoke script.
 
 ## How It Was Achieved
 
@@ -109,7 +109,7 @@ See [Natural-language interface](../../../../docs/natural-language-interface.md)
 
 The final verified matrix was:
 
-- `pnpm test` — lint plus 113 unit/integration tests, zero failures.
+- `pnpm test` — lint plus 114 unit/integration tests, zero failures.
 - `pnpm run build` — production Webpack and TypeScript builds.
 - `pnpm exec electron-builder --win dir --x64 --publish never` — unpacked Windows package.
 - `pnpm test:e2e` — 8 real Electron journeys.

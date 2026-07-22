@@ -1,38 +1,93 @@
-# Understanding the delivered system
+# Understanding shell-first natural-language assistance
 
-## User-visible contract
+## TL;DR
 
-Hyper remains a terminal first. Renderer input follows the existing xterm -> session-data RPC -> `Session.write` -> node-pty path synchronously. NLI does not classify input and cannot delay a valid command. A provider is created only after supported PowerShell emits a nonce-authenticated, strictly parsed command-not-found frame and the ordinary shell error has been flushed visibly.
+Hyper still sends every keystroke to the existing terminal path first. It does not ask AI whether text is a command. Only a nonce-authenticated `command-not-found` event from a supported PowerShell session may create a Codex request, and the user must review and approve exact command text before main writes it once to the original PTY.
 
-The user then sees a bounded clarification or one-to-three exact command choices. Model output is untrusted data: main validates the schema, applies deterministic local risk rules, retains the authoritative bytes, and exposes only display data plus opaque IDs. Edits create a new revision. Context changes, new input, replay, pane closure, and shell/cwd changes invalidate approval. High-risk text needs a second confirmation. Main atomically consumes one approval and makes one synchronous, non-retried write attempt to the original PTY.
+The shipped adapter supports interactive Windows PowerShell 5.1 and PowerShell 7. Codex runs as a hidden, proposal-only app-server child with browser ChatGPT login, OS-keyring credentials, a private tool-free home, an empty working directory, and a sanitized environment. `cmd.exe`, WSL/SSH wrappers, bash, zsh, fish, and arbitrary REPLs remain ordinary terminals until they have an equally authoritative adapter.
 
-## Ownership map
+## Concepts you need
 
-- `app/session.ts` owns PTY writes, shell startup integration, private OSC parsing, and visible-output ordering.
-- `app/nli/powershell-integration.ts` preserves interactive PowerShell profiles and prior command lookup handlers while emitting only authoritative unresolved lookups.
-- `app/nli/service.ts` owns attempts, consent/auth gates, stale checks, provider lifecycle, immutable plan authority, approval consumption, and generated-command recursion tags.
-- `app/nli/codex-app-server.ts` is a proposal-only Codex adapter with browser ChatGPT login, keyring-only credentials, a private `CODEX_HOME`, empty cwd, allowlisted environment, disabled tools/apps/hooks/MCP-like extensions/web search, and fail-closed capability checks.
-- `app/nli/window-coordinator.ts` makes per-install Privacy Reset and Logout effective across every open Hyper window.
-- `app/nli/command-plan.ts` validates provider output, screens secret-looking input locally, classifies risk, and binds plan digests.
-- `app/nli/execution.ts` validates the actual IPC sender, sets or clears the service-owned recursion tag, and performs the one original-session write attempt.
-- `lib/components/nli-panel.tsx` and the NLI reducer/actions provide an accessible, per-pane, non-modal review experience without command authority.
+### A hot path should not pay for a fallback
 
-## Privacy boundary
+A hot path is code that runs for every normal interaction. Here it is xterm input -> renderer RPC -> `Session.write` -> node-pty. Adding model classification, provider startup, or awaited work there would slow every command. The implementation leaves that path synchronous and unchanged; `test/unit/nli-performance.test.ts` guards provider construction and latency.
 
-Required provider context is the failed line, PowerShell/OS identity, opaque attempt ID, and a one-way cwd fingerprint. Raw cwd, limited Git metadata, and secret-looking input each stay behind explicit preferences. No scrollback, history, environment, clipboard, files, diffs, remote URLs, tokens, or provider stderr cross into renderer state or routine diagnostics. Reset removes the shared non-secret preference file and cancels active work in all windows. Logout asks every live provider to clear the shared keyring-backed Codex login.
+### Semantic events beat output guessing
 
-## Operational boundary
+Localized error text and nonzero exit codes are ambiguous. A PowerShell lookup hook can instead report the point where command resolution genuinely remains unresolved. `app/nli/powershell-integration.ts` installs that hook only for accepted interactive launches, and `app/nli/osc-parser.ts` accepts only bounded private frames with the expected window, session, callback, and nonce.
 
-Automatic fallback currently supports only recognized interactive PowerShell 5.1/7 launches. `cmd.exe`, WSL/SSH wrappers, bash, zsh, fish, arbitrary shells, and conflicting PowerShell modes remain normal terminals. Supporting one later requires a new authoritative adapter with startup/profile preservation, bounded authenticated events, byte preservation, dedupe, visible-error ordering, and the same performance/privacy/approval proofs; output regexes and nonzero exit codes are not acceptable substitutes.
+### Model output is data, not authority
 
-Disabling NLI cancels provider work and prevents integration in future sessions. Existing integrated PowerShell tabs retain their paired hidden parser/hook until closed so private frames never leak into visible terminal output; with the service disabled they perform no AI work. Codex credentials persist until explicit Logout.
+Codex can propose one to three commands or a clarification, but it cannot execute tools or choose bytes for the PTY at approval time. `app/nli/command-plan.ts` validates a bounded schema, computes local risk, and binds immutable plan data. Renderer RPC carries display data and opaque IDs; `app/nli/execution.ts` asks the main-owned service for the stored bytes and makes one non-retried write attempt.
 
-## Evidence map
+### Shared state needs shared revocation
 
-- User and maintainer guide: `docs/natural-language-interface.md`
-- Full acceptance contract: `vision.md` and `plan.md`
-- Unit/PTY/security tests: `test/unit/nli-*.test.ts`
-- Packaged Electron journeys: `test/index.ts`
-- Single-app Windows smoke: `scripts/test-nli-packaged.ps1`
-- Visual and packaged artifacts: `proof/artifacts/task08/`
-- Proof obligation ledger: `proof/manifest.json`
+Privacy preferences and Codex keyring identity are per-install, while Hyper may have several BrowserWindows. `app/nli/window-coordinator.ts` registers each live window service so Reset Privacy and Logout cancel or clear every window before broadcasting the new auth state. A window unregisters before its service is disposed.
+
+### Capability checks are stronger than version checks
+
+Codex 0.144.6 is the minimum supported CLI, but a version string does not prove the required protocol or isolation settings. `app/nli/codex-app-server.ts` checks initialization and effective locked-down configuration at startup, then validates account and thread/turn response shapes lazily when those paths are used. Missing or incompatible behavior fails closed.
+
+## The system, in plain English
+
+1. The user types into Hyper. Hyper immediately sends those bytes to the same PowerShell process it always used.
+2. If PowerShell accepts the command, nothing AI-related happens. An ordinary command that returns an error code also does not trigger AI.
+3. If PowerShell cannot resolve the command name, the installed hook emits a private authenticated marker. Hyper preserves the normal PowerShell error, flushes it visibly, and then opens assistance for that pane.
+4. On first use, Hyper explains exactly what may be shared. Consent and ChatGPT sign-in happen only after the failure; valid commands never start Codex.
+5. Codex returns structured suggestions. Hyper rejects malformed, oversized, tool-seeking, stale, replayed, or otherwise invalid responses.
+6. The user chooses, edits, rejects, clarifies, or retries. High-risk text needs a second deliberate confirmation.
+7. On approval, main rechecks the window, renderer, pane, shell, cwd fingerprint, attempt, plan, option, edit revision, and one-time authorization. It then writes the stored command once to that same PTY.
+8. A generated command is tagged so another lookup failure cannot recurse into AI. Closing a pane/window, typing new input, changing context, resetting privacy, logging out, or disabling the feature cancels the relevant work.
+
+## The system, with the jargon back in
+
+`lib/components/term.tsx` and the existing `sendSessionData` callers still feed `app/ui/window.ts`, which synchronously invokes `Session.write`. Session creation may call `detectShellIntegration` and `createPowerShellIntegration`; unsupported or conflicting shell arguments are returned unchanged.
+
+PTY output passes through a streaming `OscEventParser`. Valid semantic tokens enter `ShellSemanticEventGate`, while visible tokens keep their original ordering through `DataBatcher`. `NliService.onCommandNotFound` deduplicates callbacks, snapshots the original session identity, applies consent/auth gates, and lazily creates an `NliProvider`.
+
+`CodexAppServerProvider` speaks JSONL over piped stdio with `shell: false` and `windowsHide: true`. It generates a private `CODEX_HOME` configured for keyring credentials, `approval_policy = "never"`, read-only sandboxing, disabled web search, and disabled tools/apps/hooks/multi-agent/plugins/memories/goals. Its child receives an allowlisted environment and an empty app-controlled cwd. Unexpected server tool, file, or approval requests are denied before dispatch and abort the interpretation.
+
+Validated `NliProviderResult` values become an `ImmutableCommandPlan`. Renderer state is per `SessionUid`, but command authority stays in main. `executeApprovedCommand` synchronously consumes `NliApprovalDecision`, calls `tagGeneratedWrite`, invokes the original session's `write`, and records sent, not-sent, or unknown outcome without retrying.
+
+`NliWindowCoordinator` is the main-process fanout boundary for per-install revocation. Its tests cover two registered windows, idempotent unregister, and exact Reset Privacy/Logout RPC routing.
+
+## Decisions and what we rejected
+
+- We chose shell-first execution. Pre-classifying every line was rejected because it adds latency and changes valid-command behavior.
+- We chose an authoritative PowerShell hook. Output regexes and exit codes were rejected because they misclassify localized errors and legitimate nonzero exits.
+- We chose proposal-only Codex app-server integration. Giving Codex terminal tools, repository cwd, project instructions, MCP/plugins, or approval authority was rejected because interpretation does not require execution access.
+- We chose opaque renderer IDs plus main-owned bytes. Sending command authority back from Redux was rejected because a stale or compromised renderer could alter approved text.
+- We chose one consumed write attempt. Automatic retry was rejected because a PTY error can have an unknown delivery outcome.
+- We chose PowerShell-only automatic fallback for the first release. Pretending `cmd.exe`, WSL, SSH, or Unix shells have equivalent semantics was rejected; each needs a new adapter and the same profile, privacy, ordering, and performance proofs.
+- We chose a small cross-window coordinator. Window-local Reset Privacy/Logout was rejected because the underlying preference file and keyring identity are shared per install.
+
+## Watch out for
+
+- Do not add model classification, provider construction, filesystem work, or `await` before `Session.write` on ordinary input.
+- Do not infer command-not-found from output text or any generic nonzero status.
+- Preserve PowerShell profiles, existing `CommandNotFoundAction`, prompts, Unicode, and unsupported argument lists when changing the adapter.
+- Keep private OSC parsing paired with the existing integrated tab until it closes. Turning the service off stops AI work, but removing the parser early could expose private frames as terminal text.
+- Never place tokens, raw provider stderr, command bytes, cwd paths, environment, scrollback, history, files, or remote URLs in renderer state or routine logs.
+- Treat provider protocol/config checks as fail-closed. Account and thread/turn methods are intentionally checked when first used, not all at startup.
+- Codex owns in-use token refresh. Hyper reads account state with `refreshToken: false` and never transports credentials.
+- The isolated packaged smoke uses a deterministic provider seam; it proves one GUI app, no child top-level window, descendant cleanup, profile isolation, and exact temp cleanup. The real Codex hidden-spawn contract is proven separately by provider tests asserting `windowsHide: true` and disposal.
+
+## To go deeper
+
+- [Plan](./plan.md) — shipped behavior, boundaries, rollback, and Definition of Done.
+- [Vision](./vision.md) — module APIs, invariants, threat model, and test matrix.
+- [Codex provider task](./tasks/04-codex-app-server-oauth-provider.md) — OAuth, keyring, protocol, and isolation work.
+- [Approval task](./tasks/07-main-owned-approval-and-exact-pty-execution.md) — exact-byte authority and one-write semantics.
+- [Verification task](./tasks/08-comprehensive-verification-and-packaging.md) — unit, Electron, visual, packaging, and latency evidence.
+- [Final delivery flow](./flow/task-10-final-integration-review-and-dev-delivery.md) — final coordination and release path.
+- [User and maintainer guide](../../../../docs/natural-language-interface.md) — setup, support matrix, privacy, troubleshooting, and extension checklist.
+
+## Self-check
+
+1. **Does a valid command ever initialize Codex?** No. The original PTY write happens first; only a later authenticated unresolved-command event can enter NLI.
+2. **Does any nonzero exit trigger NLI?** No. Only the PowerShell lookup hook can emit the accepted semantic event.
+3. **Can Codex execute a proposed command?** No. Tools and approvals are disabled/denied; only explicit user approval lets main write stored bytes once.
+4. **Why are command choices identified by opaque IDs?** So the renderer can select a main-owned immutable option without becoming the authority for shell text.
+5. **What invalidates approval?** A newer attempt, input/context/cwd/shell/pane/window change, edit revision, close, replay, cancellation, or already-consumed authorization.
+6. **Why does Logout fan out across windows?** Codex identity is shared per install, so every live service and renderer session must observe revocation.
+7. **What proves the release?** Lint plus 113 tests, production build, Windows unpacked package, 8 Electron journeys, 10 verified Cue proof obligations, sub-2% visual diffs, and the isolated one-app/no-dangling-process smoke.

@@ -64,8 +64,13 @@ This feature remained a lightweight plan because Cue's promoter could list the f
 
 ## Self-check
 
-1. **Why does a system HTTP(S) popup return `deny`?** The URL has already been handed to the OS, so Electron must not create a second visible child.
-2. **Why can `about:blank` return `allow` in system mode?** It is the only supported bridge for scripts that navigate after creating a popup; it is hidden, timed, guarded, and destroyed after the first navigation.
-3. **What protects the terminal after an internal child closes?** Recovery operates on the same owner and never reloads it, so renderer and PTY identities are preserved.
-4. **Where is the active preference read?** In the main-process controller's live mode getter at link-open time, not cached in the renderer.
-5. **What should a new protocol do by default?** Fail closed until it is deliberately added to the classifier, security policy, and tests.
+1. **Why does a system HTTP(S) popup return `deny`?**
+   The URL has already been handed to the OS, so Electron must not create a second visible child.
+2. **Why can `about:blank` return `allow` in system mode?**
+   It is the only supported bridge for scripts that navigate after creating a popup; it is hidden, timed, guarded, and destroyed after the first navigation.
+3. **What protects the terminal after an internal child closes?**
+   Recovery operates on the same owner and never reloads it, so renderer and PTY identities are preserved.
+4. **Where is the active preference read?**
+   In the main-process controller's live mode getter at link-open time, not cached in the renderer.
+5. **What should a new protocol do by default?**
+   Fail closed until it is deliberately added to the classifier, security policy, and tests.

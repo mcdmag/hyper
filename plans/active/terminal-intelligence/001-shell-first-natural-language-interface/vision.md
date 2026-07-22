@@ -84,7 +84,7 @@ An authoritative shell hook avoids false activation on ordinary failures. Approv
 
 ### Security/privacy layer
 
-Codex runs in main as a hidden child, not in the PTY or renderer. Hyper uses a private app-specific CODEX_HOME with keyring-only credential storage and a tool-free configuration. Only failed input plus allowlisted shell/OS/context fields is sent after disclosure; scrollback, history, env, files, diffs, clipboard, and tokens are excluded.
+Codex runs in main as a hidden child, not in the PTY or renderer. Hyper uses a private app-specific CODEX_HOME with keyring-only credential storage and a tool-free configuration. Only failed input plus allowlisted shell/OS/context fields is sent after disclosure; scrollback, history, env, files, diffs, and clipboard are excluded. Secret-looking failed input remains local unless the user separately opts in to share it, with the disclosure stating that screening is heuristic.
 
 ### Implementation layer
 
@@ -105,10 +105,10 @@ The feature is off by default, capability-checked, cancelable, and observable th
 - OscEventParser.push(chunk: string): {visible: string; events: ShellSemanticEvent[]}
   - Incrementally parses bounded private frames, preserves all non-frame bytes exactly, and never throws on PTY data.
 - interface NliProvider
-  - getAuthStatus, login, cancelLogin, logout, interpret(context, signal), dispose. Implementations may return proposals only.
-- NliService.onCommandNotFound(event), approve(request), edit(request), cancel(request), disposeSession(uid)
+  - getAuthStatus, login, cancelLogin, logout, interpret(context, signal), dispose. Implementations validate and return only NliProviderResult values.
+- NliService.onCommandNotFound(event), approve(request, identity), edit(request), cancel(request), disposeSession(uid)
   - Owns lifecycle, privacy/auth gating, immutable plans, stale checks, and execution authorization.
-- validateCommandPlan(value: unknown): CommandPlan
+- validateCommandPlan(value: unknown, maximumOptions?: number): NliProviderResult
   - Returns a bounded normalized plan or a typed validation error; no coercion from prose.
 - classifyCommandRisk(shellText: string): LocalRiskAssessment
   - Deterministic advisory classification independent of model labels.

@@ -3,23 +3,32 @@ import {posix, win32} from 'path';
 import type {
   AttemptId,
   NliAttempt,
+  NliApprovalRequest,
   NliAttemptRequest,
   NliClock,
   NliDiagnostic,
-  NliDisplayOption,
   NliDisplayState,
+  NliEditRequest,
   NliErrorCode,
   NliGitMetadata,
   NliLifecycleStatus,
   NliNonceSource,
+  NliPlanRequest,
   NliPrivacyPreferences,
   NliProvider,
-  NliProviderResult,
+  PlanId,
   NliSessionSnapshot,
   SessionUid,
   ShellSemanticEvent
 } from '../../typings/nli';
 
+import {
+  ImmutableCommandPlan,
+  screenSecretLookingInput,
+  validateCommandPlan,
+  type NliApprovalDecision,
+  type NliApprovalIdentity
+} from './command-plan';
 import {fingerprintWorkingDirectory} from './osc-parser';
 import type {NliPreferencesStore} from './preferences';
 
@@ -65,6 +74,8 @@ interface ServiceAttempt {
   readonly shellIdentity: string;
   status: NliLifecycleStatus;
   inFlight: boolean;
+  activePlanId?: PlanId;
+  commandPlan?: ImmutableCommandPlan;
 }
 
 export interface NliServiceOptions {
@@ -86,9 +97,6 @@ export interface NliServiceOptions {
 
 const isNliErrorCode = (value: unknown): value is NliErrorCode =>
   typeof value === 'string' && Object.prototype.hasOwnProperty.call(ERROR_MESSAGES, value);
-
-const freezeDisplayOption = (option: NliDisplayOption): NliDisplayOption =>
-  Object.freeze({...option, risk: Object.freeze({...option.risk, reasons: Object.freeze([...option.risk.reasons])})});
 
 export const canTransitionNliState = (from: NliLifecycleStatus, to: NliLifecycleStatus) =>
   LEGAL_TRANSITIONS[from].includes(to);
@@ -233,6 +241,51 @@ export class NliService {
     }
   }
 
+  edit(request: NliEditRequest): boolean {
+    const attempt = this.match(request);
+    if (!attempt || attempt.status !== 'review' || !attempt.commandPlan) return false;
+    if (!this.isSnapshotCurrent(attempt, this.options.getSessionSnapshot(request.sessionUid))) {
+      this.finish(attempt, 'stale', 'NLI_STALE');
+      return false;
+    }
+    try {
+      if (!attempt.commandPlan.edit(request)) return false;
+      this.emitReview(attempt, attempt.commandPlan);
+      return true;
+    } catch (error) {
+      this.handleError(attempt, error);
+      return false;
+    }
+  }
+
+  approve(request: NliApprovalRequest, identity: NliApprovalIdentity): NliApprovalDecision {
+    const attempt = this.match(request);
+    if (!attempt || attempt.status !== 'review' || !attempt.commandPlan) return {status: 'rejected'};
+    if (!this.isSnapshotCurrent(attempt, this.options.getSessionSnapshot(request.sessionUid))) {
+      this.finish(attempt, 'stale', 'NLI_STALE');
+      return {status: 'rejected'};
+    }
+    const decision = attempt.commandPlan.authorize(request, identity);
+    if (decision.status === 'authorized') this.transition(attempt, 'approving');
+    return decision;
+  }
+
+  reject(request: NliPlanRequest): boolean {
+    const attempt = this.match(request);
+    if (
+      !attempt ||
+      (attempt.status !== 'review' && attempt.status !== 'clarification') ||
+      attempt.activePlanId !== request.planId
+    ) {
+      return false;
+    }
+    if (attempt.commandPlan && !attempt.commandPlan.reject(request.sessionUid, request.attemptId, request.planId)) {
+      return false;
+    }
+    this.finish(attempt, 'cancelled', 'NLI_CANCELLED');
+    return true;
+  }
+
   retry(request: NliAttemptRequest): void {
     const prior = this.match(request);
     if (!this.options.enabled() || !prior || (prior.status !== 'error' && prior.status !== 'cancelled')) {
@@ -311,6 +364,15 @@ export class NliService {
     if (!this.isCurrent(attempt) || attempt.inFlight) return;
     attempt.inFlight = true;
     try {
+      if (screenSecretLookingInput(attempt.event.submittedLine).sensitive && !preferences.shareSecretLookingInput) {
+        this.transition(attempt, 'privacy-required');
+        this.options.emitState({
+          status: 'privacy-required',
+          sessionUid: attempt.attempt.sessionUid,
+          attemptId: attempt.attempt.attemptId
+        });
+        return;
+      }
       if (!this.isSnapshotCurrent(attempt, this.options.getSessionSnapshot(attempt.attempt.sessionUid))) {
         this.finish(attempt, 'stale', 'NLI_STALE');
         return;
@@ -395,7 +457,9 @@ export class NliService {
     this.emitProviderResult(attempt, result);
   }
 
-  private emitProviderResult(attempt: ServiceAttempt, result: NliProviderResult): void {
+  private emitProviderResult(attempt: ServiceAttempt, value: unknown): void {
+    const result = validateCommandPlan(value, this.options.maxOptions());
+    attempt.activePlanId = result.planId;
     if (result.kind === 'clarification') {
       this.transition(attempt, 'clarification');
       this.options.emitState({
@@ -410,28 +474,29 @@ export class NliService {
     }
 
     this.transition(attempt, 'review');
-    const limit = Math.max(1, Math.min(3, this.options.maxOptions()));
-    const options = result.options.slice(0, limit).map((option) =>
-      freezeDisplayOption({
-        optionId: option.optionId,
-        label: option.label,
-        explanation: option.explanation,
-        commandPreview: option.shellText,
-        risk: {
-          level: 'medium',
-          reasons: ['Review the generated command before running it.'],
-          requiresSecondConfirmation: false
-        }
-      })
+    const plan = new ImmutableCommandPlan(
+      {
+        sessionUid: attempt.attempt.sessionUid,
+        attemptId: attempt.attempt.attemptId,
+        shellIdentity: attempt.shellIdentity,
+        cwdFingerprint: attempt.attempt.cwdFingerprint,
+        submittedLine: attempt.event.submittedLine
+      },
+      result
     );
+    attempt.commandPlan = plan;
+    this.emitReview(attempt, plan);
+  }
+
+  private emitReview(attempt: ServiceAttempt, plan: ImmutableCommandPlan): void {
     this.options.emitState({
       status: 'review',
       sessionUid: attempt.attempt.sessionUid,
       attemptId: attempt.attempt.attemptId,
-      planId: result.planId,
-      summary: result.summary,
-      options: Object.freeze(options),
-      editRevision: 0
+      planId: plan.planId,
+      summary: plan.summary,
+      options: plan.displayOptions,
+      editRevision: plan.revision
     });
   }
 

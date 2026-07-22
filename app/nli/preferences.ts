@@ -9,7 +9,8 @@ export const NLI_PREFERENCES_RELATIVE_PATH = join('nli', 'preferences.json');
 export const DEFAULT_NLI_PRIVACY_PREFERENCES: Readonly<NliPrivacyPreferences> = Object.freeze({
   privacyNoticeVersion: NLI_PRIVACY_NOTICE_VERSION,
   includeWorkingDirectory: false,
-  includeGitMetadata: false
+  includeGitMetadata: false,
+  shareSecretLookingInput: false
 });
 
 export interface NliPreferencesFileSystem {
@@ -36,7 +37,8 @@ const isPreferences = (value: unknown): value is NliPrivacyPreferences => {
   return (
     preferences.privacyNoticeVersion === NLI_PRIVACY_NOTICE_VERSION &&
     typeof preferences.includeWorkingDirectory === 'boolean' &&
-    typeof preferences.includeGitMetadata === 'boolean'
+    typeof preferences.includeGitMetadata === 'boolean' &&
+    typeof preferences.shareSecretLookingInput === 'boolean'
   );
 };
 
@@ -65,7 +67,8 @@ export const createNliPreferencesStore = (
       const normalized: NliPrivacyPreferences = Object.freeze({
         privacyNoticeVersion: NLI_PRIVACY_NOTICE_VERSION,
         includeWorkingDirectory: preferences.includeWorkingDirectory,
-        includeGitMetadata: preferences.includeGitMetadata
+        includeGitMetadata: preferences.includeGitMetadata,
+        shareSecretLookingInput: preferences.shareSecretLookingInput === true
       });
       const temporaryPath = `${path}.tmp`;
       await fileSystem.mkdir(dirname(path), {recursive: true});

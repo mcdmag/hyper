@@ -36,6 +36,12 @@ test('mockup contains every named NLI state', (t) => {
   t.regex(html, /Cancel sign-in/);
   t.regex(html, /Log out of Codex/);
   t.regex(html, /Reset privacy choices/);
+  t.regex(html, /Secret-looking failed input/);
+  t.regex(html, /opaque attempt ID/);
+  t.regex(
+    html,
+    /Repository status, branch, staged\/unstaged\/untracked flags, remote presence, and GitHub CLI availability/
+  );
   t.regex(html, /keyring is unavailable/);
   t.regex(html, /cannot create its isolated Codex data directory/);
   t.regex(html, /Cancel interpretation/);

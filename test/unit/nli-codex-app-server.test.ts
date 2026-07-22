@@ -390,6 +390,7 @@ test('rejects non-HTTPS OAuth URLs without opening them', async (t) => {
 
 test('uses ephemeral tool-free turns with outputSchema and returns fragmented structured completion', async (t) => {
   const plan = {
+    version: 1,
     kind: 'plan',
     planId: 'plan-1',
     summary: 'Commit and open a pull request.',
@@ -397,7 +398,9 @@ test('uses ephemeral tool-free turns with outputSchema and returns fragmented st
       {
         optionId: 'option-1',
         label: 'GitHub CLI',
-        explanation: 'Commit, push, and open the PR.',
+        rationale: 'Commit, push, and open the PR.',
+        assumptions: ['The GitHub CLI is authenticated.'],
+        purpose: 'Create a pull request.',
         shellText: 'git commit -am "update"; git push; gh pr create'
       }
     ]

@@ -29,7 +29,8 @@ test('natural language interface is off and private by default', (t) => {
   t.deepEqual(DEFAULT_NLI_PRIVACY_PREFERENCES, {
     privacyNoticeVersion: 1,
     includeWorkingDirectory: false,
-    includeGitMetadata: false
+    includeGitMetadata: false,
+    shareSecretLookingInput: false
   });
 });
 
@@ -97,12 +98,14 @@ test('preferences use the userData-relative path and reset revokes consent', asy
   t.is(await store.load(), null);
   await store.save({
     includeWorkingDirectory: true,
-    includeGitMetadata: false
+    includeGitMetadata: false,
+    shareSecretLookingInput: false
   });
   t.deepEqual(await store.load(), {
     privacyNoticeVersion: 1,
     includeWorkingDirectory: true,
-    includeGitMetadata: false
+    includeGitMetadata: false,
+    shareSecretLookingInput: false
   });
   await store.reset();
   t.is(await store.load(), null);

@@ -298,6 +298,9 @@ export function newWindow(
   rpc.on(NLI_RPC_EVENTS.cancel, (request) => {
     nliService.cancel(request);
   });
+  rpc.on(NLI_RPC_EVENTS.edit, (request) => {
+    nliService.edit(request);
+  });
   rpc.on(NLI_RPC_EVENTS.retry, (request) => {
     nliService.retry(request);
   });

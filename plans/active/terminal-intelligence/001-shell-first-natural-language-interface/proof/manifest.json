@@ -37,6 +37,24 @@
       "status": "pending",
       "deferReason": "Task 04 is Electron-main only; Task 06 renders authentication/provider states and Task 08 captures the packaged flow.",
       "createdInTask": "Task 04: Add the hardened Codex OAuth provider"
+    },
+    {
+      "id": "e2e:electron-main-nli-approval:immutable-plan-validation-privacy-gating-risk-classification-and-approval-replay-protection",
+      "kind": "e2e",
+      "surface": "electron-main-nli-approval",
+      "flow": "immutable plan validation, privacy gating, risk classification, and approval replay protection",
+      "status": "pending",
+      "deferReason": "Task 05 provides unit/service integration coverage. Task 08 exercises the packaged renderer/main/PTY flow and will attach end-to-end evidence before merge.",
+      "createdInTask": "Task 05: Validate proposals and make approval immutable"
+    },
+    {
+      "id": "visual:per-pane-nli-panel:immutable-plan-validation-privacy-gating-risk-classification-and-approval-replay-protection",
+      "kind": "visual",
+      "surface": "per-pane-nli-panel",
+      "flow": "immutable plan validation, privacy gating, risk classification, and approval replay protection",
+      "status": "pending",
+      "deferReason": "Task 05 establishes main-process contracts only. Tasks 06 and 08 render and capture the review, privacy, risk, edit, and confirmation states before merge.",
+      "createdInTask": "Task 05: Validate proposals and make approval immutable"
     }
   ]
 }

@@ -69,6 +69,7 @@ export interface NliPrivacyPreferences {
   readonly privacyNoticeVersion: 1;
   readonly includeWorkingDirectory: boolean;
   readonly includeGitMetadata: boolean;
+  readonly shareSecretLookingInput?: boolean;
 }
 
 export type NliPrivacyState =
@@ -102,12 +103,15 @@ export interface NliInterpretationContext {
 export interface CommandPlanOption {
   readonly optionId: OptionId;
   readonly label: string;
-  readonly explanation: string;
+  readonly rationale: string;
+  readonly assumptions: readonly string[];
+  readonly purpose: string;
   /** Authoritative bytes. This type is main-process only and must never cross renderer IPC. */
   readonly shellText: string;
 }
 
 export interface CommandPlan {
+  readonly version: 1;
   readonly kind: 'plan';
   readonly planId: PlanId;
   readonly summary: string;
@@ -115,6 +119,7 @@ export interface CommandPlan {
 }
 
 export interface ClarificationPlan {
+  readonly version: 1;
   readonly kind: 'clarification';
   readonly planId: PlanId;
   readonly question: string;
@@ -135,7 +140,9 @@ export interface LocalRiskAssessment {
 export interface NliDisplayOption {
   readonly optionId: OptionId;
   readonly label: string;
-  readonly explanation: string;
+  readonly rationale: string;
+  readonly assumptions: readonly string[];
+  readonly purpose: string;
   /** Display-only copy. Main retains the authoritative bytes and digest. */
   readonly commandPreview: string;
   readonly risk: LocalRiskAssessment;

@@ -11,6 +11,8 @@ import type {
   NliProviderResult
 } from '../../typings/nli';
 
+import {NLI_PROVIDER_OUTPUT_SCHEMA, validateCommandPlan} from './command-plan';
+
 const MINIMUM_CODEX_VERSION = [0, 144, 6] as const;
 const MAX_JSONL_BYTES = 1024 * 1024;
 const REQUIRED_FEATURES = Object.freeze([
@@ -54,60 +56,6 @@ memories = false
 goals = false
 shell_snapshot = false
 `;
-
-export const CODEX_OUTPUT_SCHEMA: Readonly<Record<string, unknown>> = Object.freeze({
-  type: 'object',
-  oneOf: [
-    {
-      required: ['kind', 'planId', 'summary', 'options'],
-      properties: {
-        kind: {const: 'plan'},
-        planId: {type: 'string', minLength: 1, maxLength: 128},
-        summary: {type: 'string', minLength: 1, maxLength: 500},
-        options: {
-          type: 'array',
-          minItems: 1,
-          maxItems: 3,
-          items: {
-            type: 'object',
-            required: ['optionId', 'label', 'explanation', 'shellText'],
-            properties: {
-              optionId: {type: 'string', minLength: 1, maxLength: 128},
-              label: {type: 'string', minLength: 1, maxLength: 160},
-              explanation: {type: 'string', minLength: 1, maxLength: 500},
-              shellText: {type: 'string', minLength: 1, maxLength: 4096}
-            },
-            additionalProperties: false
-          }
-        }
-      },
-      additionalProperties: false
-    },
-    {
-      required: ['kind', 'planId', 'question', 'choices'],
-      properties: {
-        kind: {const: 'clarification'},
-        planId: {type: 'string', minLength: 1, maxLength: 128},
-        question: {type: 'string', minLength: 1, maxLength: 500},
-        choices: {
-          type: 'array',
-          minItems: 2,
-          maxItems: 3,
-          items: {
-            type: 'object',
-            required: ['optionId', 'label'],
-            properties: {
-              optionId: {type: 'string', minLength: 1, maxLength: 128},
-              label: {type: 'string', minLength: 1, maxLength: 160}
-            },
-            additionalProperties: false
-          }
-        }
-      },
-      additionalProperties: false
-    }
-  ]
-});
 
 export interface NliCodexFileSystem {
   mkdir(path: string, options: {recursive: true; mode: number}): Promise<unknown>;
@@ -237,7 +185,7 @@ const accountState = (response: unknown): NliAuthState => {
   };
 };
 
-const extractTurnResult = (params: unknown): NliProviderResult => {
+const extractTurnResult = (params: unknown): unknown => {
   if (!isObject(params) || !isObject(params.turn)) throw providerError('NLI_VALIDATION_FAILED');
   const turn = params.turn;
   if (turn.status !== 'completed' || !Array.isArray(turn.items)) {
@@ -248,7 +196,7 @@ const extractTurnResult = (params: unknown): NliProviderResult => {
   );
   if (messages.length === 0) throw providerError('NLI_VALIDATION_FAILED');
   try {
-    return JSON.parse(messages[messages.length - 1].text as string) as NliProviderResult;
+    return JSON.parse(messages[messages.length - 1].text as string) as unknown;
   } catch (_error) {
     throw providerError('NLI_VALIDATION_FAILED');
   }
@@ -371,7 +319,7 @@ export class CodexAppServerProvider implements NliProvider {
       );
       threadId = readString(isObject(threadResponse) ? threadResponse.thread : undefined, 'id');
       if (!threadId) throw providerError('NLI_CODEX_INCOMPATIBLE');
-      const outputSchema = JSON.parse(JSON.stringify(CODEX_OUTPUT_SCHEMA)) as JsonObject;
+      const outputSchema = JSON.parse(JSON.stringify(NLI_PROVIDER_OUTPUT_SCHEMA)) as JsonObject;
       const planSchema = (outputSchema.oneOf as JsonObject[])[0];
       const properties = planSchema.properties as JsonObject;
       const options = properties.options as JsonObject;
@@ -396,7 +344,7 @@ export class CodexAppServerProvider implements NliProvider {
         (params) => readString(isObject(params) ? params.turn : undefined, 'id') === turnId,
         deadline.signal
       );
-      return extractTurnResult(completion);
+      return validateCommandPlan(extractTurnResult(completion), this.options.maxOptions);
     } catch (error) {
       if (threadId && turnId && this.child) {
         void this.request('turn/interrupt', {threadId, turnId}).catch(() => undefined);

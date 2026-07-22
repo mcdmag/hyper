@@ -46,6 +46,7 @@ class FakeProvider implements NliProvider {
   lastContext: Parameters<NliProvider['interpret']>[0] | undefined;
   lastSignal: AbortSignal | undefined;
   result: NliProviderResult = {
+    version: 1,
     kind: 'plan',
     planId: 'plan-1' as PlanId,
     summary: 'Create a branch and open a pull request.',
@@ -53,7 +54,9 @@ class FakeProvider implements NliProvider {
       {
         optionId: 'option-1' as OptionId,
         label: 'Use GitHub CLI',
-        explanation: 'Commit, push, and create a pull request.',
+        rationale: 'Commit, push, and create a pull request.',
+        assumptions: ['GitHub CLI is authenticated.'],
+        purpose: 'Create the pull request.',
         shellText: 'git commit -am "change"; git push; gh pr create'
       }
     ]
@@ -183,6 +186,100 @@ test('provider stays cold until an authoritative event passes privacy consent', 
     harness.states.map((state) => state.status),
     ['privacy-required']
   );
+});
+
+test('secret-looking failed input requires explicit local sharing consent before provider creation', async (t) => {
+  const harness = makeHarness({
+    privacyNoticeVersion: 1,
+    includeWorkingDirectory: false,
+    includeGitMetadata: false,
+    shareSecretLookingInput: false
+  });
+  harness.service.onCommandNotFound(makeEvent({submittedLine: 'OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz'}));
+  await flush();
+
+  t.is(harness.providerCreations, 0);
+  t.is(harness.states.at(-1)?.status, 'privacy-required');
+
+  await harness.service.setPrivacyPreferences({
+    includeWorkingDirectory: false,
+    includeGitMetadata: false,
+    shareSecretLookingInput: true
+  });
+  await flush();
+  t.is(harness.providerCreations, 1);
+  t.is(harness.provider.interpretCalls, 1);
+});
+
+test('untrusted provider output is validated before it can enter review state', async (t) => {
+  const harness = makeHarness({
+    privacyNoticeVersion: 1,
+    includeWorkingDirectory: false,
+    includeGitMetadata: false
+  });
+  harness.provider.result = {
+    ...(harness.provider.result as unknown as Record<string, unknown>),
+    unexpected: 'model prose'
+  } as unknown as NliProviderResult;
+  harness.service.onCommandNotFound(makeEvent());
+  await flush();
+  await flush();
+
+  t.false(harness.states.some((state) => state.status === 'review'));
+  const state = harness.states.at(-1);
+  t.is(state?.status, 'error');
+  t.is(state?.status === 'error' ? state.code : undefined, 'NLI_VALIDATION_FAILED');
+});
+
+test('service edits and atomically authorizes only the current opaque plan revision and identity', async (t) => {
+  const harness = makeHarness({
+    privacyNoticeVersion: 1,
+    includeWorkingDirectory: false,
+    includeGitMetadata: false
+  });
+  harness.service.onCommandNotFound(makeEvent());
+  await flush();
+  await flush();
+  const review = harness.states.find(
+    (state): state is Extract<NliDisplayState, {status: 'review'}> => state.status === 'review'
+  )!;
+  const edit = {
+    sessionUid,
+    attemptId: review.attemptId,
+    planId: review.planId,
+    optionId: review.options[0].optionId,
+    editRevision: 0,
+    shellText: 'Remove-Item -Recurse .\\build'
+  };
+  t.true(harness.service.edit(edit));
+  const edited = harness.states.at(-1);
+  t.is(edited?.status, 'review');
+  if (edited?.status !== 'review') return;
+  t.is(edited.editRevision, 1);
+  t.is(edited.options[0].commandPreview, edit.shellText);
+  t.is(edited.options[0].risk.level, 'high');
+
+  const baseApproval = {
+    windowId: 10,
+    rendererId: 20,
+    sessionUid,
+    attemptId: review.attemptId,
+    planId: review.planId,
+    optionId: review.options[0].optionId,
+    editRevision: 1,
+    highRiskConfirmation: false
+  };
+  t.deepEqual(harness.service.approve(baseApproval, {windowId: 99, rendererId: 20}), {status: 'rejected'});
+  t.is(harness.service.approve(baseApproval, {windowId: 10, rendererId: 20}).status, 'confirmation-required');
+  const authorized = harness.service.approve(
+    {...baseApproval, highRiskConfirmation: true},
+    {windowId: 10, rendererId: 20}
+  );
+  t.is(authorized.status, 'authorized');
+  if (authorized.status === 'authorized') t.is(authorized.shellText, edit.shellText);
+  t.deepEqual(harness.service.approve({...baseApproval, highRiskConfirmation: true}, {windowId: 10, rendererId: 20}), {
+    status: 'rejected'
+  });
 });
 
 test('one verified failure produces one proposal with a minimal consented context', async (t) => {
@@ -511,6 +608,23 @@ test('approval-time context check re-samples cwd and exact shell identity', asyn
   t.true(harness.service.isCurrentContext({sessionUid, attemptId: review!.attemptId}));
   harness.setDirectory('C:\\moved');
   t.false(harness.service.isCurrentContext({sessionUid, attemptId: review!.attemptId}));
+  t.deepEqual(
+    harness.service.approve(
+      {
+        windowId: 10,
+        rendererId: 20,
+        sessionUid,
+        attemptId: review!.attemptId,
+        planId: review!.planId,
+        optionId: review!.options[0].optionId,
+        editRevision: review!.editRevision,
+        highRiskConfirmation: false
+      },
+      {windowId: 10, rendererId: 20}
+    ),
+    {status: 'rejected'}
+  );
+  t.is(harness.states.at(-1)?.status, 'stale');
 
   const shellHarness = makeHarness({
     privacyNoticeVersion: 1,
@@ -526,6 +640,69 @@ test('approval-time context check re-samples cwd and exact shell identity', asyn
   t.truthy(shellReview);
   shellHarness.setShell('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe');
   t.false(shellHarness.service.isCurrentContext({sessionUid, attemptId: shellReview!.attemptId}));
+  t.deepEqual(
+    shellHarness.service.approve(
+      {
+        windowId: 10,
+        rendererId: 20,
+        sessionUid,
+        attemptId: shellReview!.attemptId,
+        planId: shellReview!.planId,
+        optionId: shellReview!.options[0].optionId,
+        editRevision: shellReview!.editRevision,
+        highRiskConfirmation: false
+      },
+      {windowId: 10, rendererId: 20}
+    ),
+    {status: 'rejected'}
+  );
+  t.is(shellHarness.states.at(-1)?.status, 'stale');
+});
+
+test('session disposal and a newer attempt invalidate an old approval', async (t) => {
+  const privacy = {
+    privacyNoticeVersion: 1,
+    includeWorkingDirectory: false,
+    includeGitMetadata: false
+  } as const;
+  const approvalFor = (review: Extract<NliDisplayState, {status: 'review'}>) => ({
+    windowId: 10,
+    rendererId: 20,
+    sessionUid,
+    attemptId: review.attemptId,
+    planId: review.planId,
+    optionId: review.options[0].optionId,
+    editRevision: review.editRevision,
+    highRiskConfirmation: false
+  });
+
+  const disposed = makeHarness(privacy);
+  disposed.service.onCommandNotFound(makeEvent());
+  await flush();
+  await flush();
+  const disposedReview = disposed.states.find(
+    (state): state is Extract<NliDisplayState, {status: 'review'}> => state.status === 'review'
+  )!;
+  disposed.service.disposeSession(sessionUid);
+  t.deepEqual(disposed.service.approve(approvalFor(disposedReview), {windowId: 10, rendererId: 20}), {
+    status: 'rejected'
+  });
+
+  const superseded = makeHarness(privacy);
+  superseded.service.onCommandNotFound(makeEvent());
+  await flush();
+  await flush();
+  const oldReview = superseded.states.find(
+    (state): state is Extract<NliDisplayState, {status: 'review'}> => state.status === 'review'
+  )!;
+  superseded.service.onCommandNotFound(
+    makeEvent({callbackId: 'callback-new' as CallbackId, historyId: '99', submittedLine: 'make a release branch'})
+  );
+  await flush();
+  await flush();
+  t.deepEqual(superseded.service.approve(approvalFor(oldReview), {windowId: 10, rendererId: 20}), {
+    status: 'rejected'
+  });
 });
 
 test('generated command failures are tagged so they cannot recursively invoke AI', async (t) => {

@@ -505,11 +505,12 @@
 
     <template id="state-privacy-and-sign-in" data-state="privacy-and-sign-in">
       <div class="panel-header"><div><p class="eyebrow">First use</p><h1 id="panel-title" tabindex="-1">Choose what Codex may receive</h1></div><span class="status">Consent required</span></div>
-      <p>The failed line and shell version are required. Hyper never sends terminal history, scrollback, environment variables, clipboard contents, file contents, diffs, credentials, or remote URLs.</p>
+      <p>Codex receives the failed line, PowerShell family and version, operating system, an opaque attempt ID, and a one-way working-directory fingerprint. Hyper never adds terminal history, scrollback, environment variables, clipboard contents, file contents, diffs, credentials, or remote URLs as separate context. A failed line that looks like a credential stays local unless you explicitly allow it below.</p>
       <fieldset class="privacy-choices">
         <legend>Optional context</legend>
         <label class="choice"><input type="checkbox" name="share-cwd" /><span><strong>Working directory</strong><small>Share the current path with this interpretation.</small></span></label>
-        <label class="choice"><input type="checkbox" name="share-git" /><span><strong>Limited Git metadata</strong><small>Branch and clean/staged/unstaged/untracked flags only; never filenames, diffs, commits, or remote URLs.</small></span></label>
+        <label class="choice"><input type="checkbox" name="share-git" /><span><strong>Limited Git metadata</strong><small>Repository status, branch, staged/unstaged/untracked flags, remote presence, and GitHub CLI availability only; never filenames, diffs, commits, or remote URLs.</small></span></label>
+        <label class="choice"><input type="checkbox" name="share-secret-looking-input" /><span><strong>Secret-looking failed input</strong><small>Off by default. Hyper screens locally and refuses to share input that resembles a credential unless you explicitly allow it.</small></span></label>
       </fieldset>
       <div class="actions"><button type="button" class="primary">Accept and sign in with ChatGPT</button><button type="button">Not now</button><button type="button" class="danger">Reset privacy choices</button></div>
       <p class="muted">ChatGPT sign-in opens in your browser. Credentials remain in the operating-system keyring and never enter Hyper's renderer.</p>

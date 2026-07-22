@@ -21,26 +21,27 @@ Hyper has several uncoordinated link paths and no owner/child recovery contract:
 - Electron-created popup windows do not pass through the tracked `createWindow` path in `app/index.ts:96-157`; consequently, they are absent from `windowSet`, Hyper cleanup, and any owner-focus recovery. `app/ui/window.ts` also has no `did-create-window` listener.
 - Reloading the owner is unsafe recovery because `app/ui/window.ts:291-298` deletes all PTY sessions after a subsequent main-window navigation.
 
-The failing regression must capture both direct URLs and `about:blank`-then-navigate requests, but the implementation boundary is deterministic: all user-clicked renderer links and all `window.open` requests must enter one main-process policy, and every allowed internal child must have a close-to-owner lifecycle.
+The failing regression must capture both direct URLs and `about:blank`-then-navigate requests, but the implementation boundary is deterministic: core terminal/notification links and all `window.open` requests must enter one main-process policy, and every Electron child must be hidden-and-short-lived or have a close-to-owner lifecycle.
 
 ## Change
 
 1. Add `config.webLinksOpenMode` with values `'system'` and `'internal'`; set `'system'` in `app/config/config-default.json`. `app/config/init.ts:33-54` already merges missing user keys from shipped defaults, so existing config files receive the new default without being rewritten, while root/profile overrides continue to work and live config reloads affect the next link.
-2. Add `app/utils/link-opening.ts` as the single policy/controller. It must parse URLs without throwing, allow HTTP(S) for this web-link feature, and produce one of three results: deny, launch in the system browser, or allow one managed internal child. Malformed URLs and unsupported schemes are denied. System mode also denies `about:blank`; internal mode may allow it only as a transient hardened child whose subsequent navigation is restricted to HTTP(S).
-3. Add a typed renderer-to-main `open link` event in `typings/common.d.ts`. Route terminal links and notification links through it. Keep the existing `open external` event and Help/menu calls system-only for plugin/API compatibility.
-4. In system mode, call `shell.openExternal(url)` from the main process and return `deny` from `setWindowOpenHandler` so Electron never creates an internal popup. On rejection, emit an error-level diagnostic through `console.error` without logging the URL, and show a non-blocking Hyper notification explaining that the OS browser could not be opened; never navigate or reload the owner.
-5. In internal mode, allow one HTTP(S) child (or a transient `about:blank` child guarded before later navigation) with `outlivesOpener: false` and hardened `overrideBrowserWindowOptions`: parent set to the owner, `nodeIntegration: false`, `contextIsolation: true`, and `sandbox: true`. Register `did-create-window` before requests are handled, apply the same URL policy to child navigation and nested popup attempts, and attach an idempotent child-close handler that restores a minimized owner, shows it, focuses both BrowserWindow and webContents, and performs no reload or session cleanup.
-6. Keep drag/drop behavior confined to `will-navigate`; do not send ordinary `window.open` URLs to the active shell as pasted session data.
-7. Regenerate `app/config/schema.json`. Add unit coverage for URL/policy decisions, config merging, secure popup options, launch failure, nested requests, and idempotent owner recovery. Extend the packaged Electron test to prove popup close preserves owner URL, renderer process, session IDs, visibility, focus, and a non-empty captured frame.
+2. Add `app/utils/link-opening.ts` as the single policy/controller. It must parse URLs without throwing, allow HTTP(S) for this web-link feature, and decide among deny, system launch, visible internal child, and a hidden system bridge for `about:blank`-then-navigate flows. Malformed URLs and unsupported schemes are denied.
+3. Add a typed renderer-to-main `open link` event in `typings/common.d.ts`. Route terminal links and notification links through it. The main handler launches the system browser in system mode or creates and loads a managed internal BrowserWindow in internal mode. Keep the existing `open external` event and Help/menu calls system-only for plugin/API compatibility.
+4. In system mode, a direct HTTP(S) request calls `shell.openExternal(url)` and returns `deny` from `setWindowOpenHandler`, so Electron creates no visible popup. For `window.open('about:blank')` followed by script navigation, allow a hardened `show: false` bridge child, intercept its first navigation: safe HTTP(S) is launched externally and the bridge is destroyed; unsupported navigation is denied and the bridge is destroyed. A `SYSTEM_LINK_BRIDGE_TIMEOUT_MS = 5000` timeout destroys a bridge that never navigates. No bridge may become visible or outlive the owner.
+5. On external-launch rejection, emit an error-level diagnostic through `console.error` without logging the URL, and show a non-blocking Hyper notification explaining that the OS browser could not be opened; never navigate or reload the owner.
+6. In internal mode, direct RPC requests create and load one managed child; generic `window.open` requests return `allow`. Both paths use `outlivesOpener: false` and hardened BrowserWindow options: parent set to the owner, `nodeIntegration: false`, `contextIsolation: true`, and `sandbox: true`. Register `did-create-window` before requests are handled, apply the same URL policy to child navigation and nested popup attempts, and attach an idempotent child-close handler that restores a minimized owner, shows it, focuses both BrowserWindow and webContents, and performs no reload or session cleanup.
+7. Keep drag/drop behavior confined to the owner `will-navigate` path; do not send ordinary `window.open` URLs to the active shell as pasted session data.
+8. Regenerate `app/config/schema.json`. Add unit coverage for URL/policy decisions, config merging, both internal creation paths, hidden bridge timeout/navigation, secure popup options, launch failure, nested requests, and idempotent owner recovery. Extend the packaged Electron test to prove internal popup close preserves owner URL, renderer process, session IDs, visibility, focus, and a non-empty captured frame.
 
 ### State Contracts
 
 | Boundary | Input | Transformation | Output/invariant |
 | --- | --- | --- | --- |
-| Renderer link -> typed RPC | `{url: string}` from terminal or notification activation | No renderer-side open; main process reads the owning window's current decorated profile config | Exactly one `open link` request; raw URL is not logged |
+| Renderer link -> typed RPC | `{url: string}` from terminal or notification activation | No renderer-side open; main process reads the owning window's current decorated profile config | Exactly one `open link` request; system launches externally, internal creates/loads a managed child; raw URL is not logged |
 | Config -> policy | `webLinksOpenMode` from live `cfg` | Missing/invalid values resolve to shipped `'system'` default; explicit profile `'internal'` is retained | Decision uses config effective at click time |
-| `window.open` -> policy | `{url, disposition, frameName}` plus owner | Parse and allowlist HTTP(S); allow transient `about:blank` only for a guarded internal child; distinguish system/internal/deny | System returns `deny` after one external launch; internal returns hardened `allow`; invalid returns `deny` |
-| Internal child -> owner recovery | Managed child `closed` event | Idempotent restore/show/focus sequence guarded by `isDestroyed()` | Owner URL, renderer process, and session IDs unchanged; no cleanup/reload |
+| `window.open` -> policy | `{url, disposition, frameName}` plus owner | Parse and allowlist HTTP(S); map system `about:blank` to a hidden timed bridge and internal `about:blank` to a guarded visible child | Direct system returns `deny` after one launch; bridge returns hardened hidden `allow`; internal returns hardened visible `allow`; invalid returns `deny` |
+| Managed child -> owner recovery | Internal child `closed` event or hidden bridge completion/timeout | Internal: idempotent restore/show/focus guarded by `isDestroyed()`; bridge: destroy without focus theft | Owner URL, renderer process, and session IDs unchanged; no cleanup/reload; zero bridge leaks |
 | External launch failure -> user | Rejected `shell.openExternal` promise | Error-level local diagnostic with URL redacted plus Hyper notification | Hyper remains interactive and no popup is created |
 
 ## Public API
@@ -71,7 +72,7 @@ The failing regression must capture both direct URLs and `about:blank`-then-navi
 Expected implementation surface:
 
 - `app/ui/window.ts:247-249,291-326` — consume the configurable link RPC, separate dropped navigation, install policy and managed child recovery.
-- `app/utils/link-opening.ts` (new) — URL decision, external launch, secure internal options, and owner-recovery helpers.
+- `app/utils/link-opening.ts` (new) — URL decisions, external launch, direct internal creation, hidden bridge management, secure options, and owner-recovery helpers.
 - `lib/components/term.tsx:1,209-221` — replace direct renderer `shell.openExternal` with typed configurable link RPC.
 - `lib/components/notifications.tsx:45-57,75-83,98-112` — route user-clicked renderer links through the same policy.
 - `typings/common.d.ts:32-48` — add the typed `open link` request while retaining `open external`.
@@ -102,12 +103,12 @@ No visual mockup is required because the feature adds a JSON configuration contr
 
 ## Verification
 
-1. Run `pnpm exec ava test/unit/link-opening.test.ts`. The suite must prove the system/internal/deny matrix, missing versus explicit config values, redacted failure reporting, secure BrowserWindow overrides, nested-popup handling, and idempotent owner recovery.
+1. Run `pnpm exec ava test/unit/link-opening.test.ts`. The suite must prove the system/internal/bridge/deny matrix, missing versus explicit config values, redacted failure reporting, direct-RPC internal creation, secure BrowserWindow overrides, bridge navigation/timeout cleanup, nested-popup handling, and idempotent owner recovery.
 2. Run `pnpm run generate-schema`, commit the generated schema, then run `pnpm run generate-schema && git diff --exit-code -- app/config/schema.json` to prove generation is stable.
 3. Run `rg -n 'webLinksOpenMode|open link' app lib typings test` and confirm every integration surface listed above is present and no terminal/notification link path still calls renderer-side `shell.openExternal`.
 4. Run `pnpm run lint`, `pnpm exec tsc -b --pretty false`, and `pnpm run test:unit`.
-5. Run `pnpm run dist && pnpm run test:e2e`. The regression must exercise both modes without opening a real OS browser in CI: mock the external-launch boundary for system mode, and in internal mode open/close a controlled HTTP(S) fixture child. It must assert no system-mode child, one hardened internal child, the same owner URL/renderer/session IDs after close, focused/visible owner state, and a non-empty captured frame.
-6. Repeat the internal open/close action in the packaged regression and assert BrowserWindow count returns to baseline after every cycle, proving no blank owner or leaked popup.
+5. Run `pnpm run dist && pnpm run test:e2e`. In test setup, create a temporary `XDG_CONFIG_HOME/Hyper/hyper.json` from the shipped default with `webLinksOpenMode: 'internal'`, start a loopback Node HTTP fixture, and launch Hyper with that environment. The regression must open/close the fixture child and assert one hardened child plus the same owner URL/renderer/session IDs after close, focused/visible owner state, and a non-empty captured frame. System/bridge behavior remains fully mocked in the unit suite so CI never launches a real OS browser.
+6. Repeat the internal open/close action in the packaged regression and assert BrowserWindow count returns to baseline after every cycle, proving no blank owner or leaked popup; clean up the temporary config directory in the test teardown.
 
 ## Commit Ref
 

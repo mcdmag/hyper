@@ -1,0 +1,116 @@
+{
+  "generatedBy": "codex-cli 0.144.6",
+  "sourceCommand": "codex app-server generate-json-schema --experimental",
+  "sourceSchemas": [
+    "codex_app_server_protocol.schemas.json",
+    "v1/InitializeParams.json",
+    "v1/InitializeResponse.json",
+    "v2/GetAccountParams.json",
+    "v2/GetAccountResponse.json",
+    "v2/LoginAccountParams.json",
+    "v2/LoginAccountResponse.json",
+    "v2/ThreadStartParams.json",
+    "v2/TurnStartParams.json",
+    "v2/TurnInterruptParams.json",
+    "v2/TurnCompletedNotification.json"
+  ],
+  "transport": "jsonl-stdio",
+  "minimumVersion": "0.144.6",
+  "generatedSchemaSubset": {
+    "initialize": {
+      "params": {
+        "type": "object",
+        "required": ["clientInfo"],
+        "properties": {
+          "clientInfo": {"$ref": "v1/ClientInfo"},
+          "capabilities": {"$ref": "v1/InitializeCapabilities"}
+        }
+      },
+      "responseRequired": ["codexHome", "platformFamily", "platformOs", "userAgent"]
+    },
+    "account/read": {
+      "paramsProperties": {"refreshToken": {"type": "boolean"}},
+      "responseRequired": ["requiresOpenaiAuth"]
+    },
+    "account/login/start": {
+      "chatgptParamsRequired": ["type"],
+      "chatgptResponseRequired": ["authUrl", "loginId", "type"]
+    },
+    "account/login/cancel": {"paramsRequired": ["loginId"]},
+    "thread/start": {
+      "isolationProperties": [
+        "approvalPolicy",
+        "cwd",
+        "dynamicTools",
+        "environments",
+        "ephemeral",
+        "runtimeWorkspaceRoots",
+        "sandbox"
+      ],
+      "responseRequired": [
+        "approvalPolicy",
+        "approvalsReviewer",
+        "cwd",
+        "model",
+        "modelProvider",
+        "sandbox",
+        "thread"
+      ]
+    },
+    "turn/start": {
+      "paramsRequired": ["input", "threadId"],
+      "outputSchema": true,
+      "isolationProperties": [
+        "approvalPolicy",
+        "cwd",
+        "environments",
+        "outputSchema",
+        "runtimeWorkspaceRoots"
+      ],
+      "responseRequired": ["turn"]
+    },
+    "turn/interrupt": {"paramsRequired": ["threadId", "turnId"]},
+    "turn/completed": {"paramsRequired": ["threadId", "turn"]},
+    "account/login/completed": {"paramsRequired": ["success"]},
+    "experimentalFeature/list": {"responseRequired": ["data"]}
+  },
+  "clientRequests": [
+    "initialize",
+    "account/read",
+    "account/login/start",
+    "account/login/cancel",
+    "account/logout",
+    "config/read",
+    "experimentalFeature/list",
+    "thread/start",
+    "turn/start",
+    "turn/interrupt"
+  ],
+  "serverNotifications": [
+    "account/login/completed",
+    "error",
+    "item/agentMessage/delta",
+    "turn/completed"
+  ],
+  "deniedServerRequests": [
+    "item/commandExecution/requestApproval",
+    "item/fileChange/requestApproval",
+    "item/tool/requestUserInput",
+    "mcpServer/elicitation/request",
+    "item/permissions/requestApproval",
+    "item/tool/call",
+    "account/chatgptAuthTokens/refresh",
+    "attestation/generate",
+    "currentTime/read",
+    "applyPatchApproval",
+    "execCommandApproval"
+  ],
+  "requiredTurnStartFields": ["threadId", "input"],
+  "requiredIsolationFields": [
+    "approvalPolicy",
+    "cwd",
+    "environments",
+    "outputSchema",
+    "runtimeWorkspaceRoots"
+  ]
+}

@@ -37,6 +37,23 @@ type rootConfigOptions = {
    */
   useConptyDll?: boolean;
   useConpty?: boolean;
+  /** Opt-in shell-first natural-language fallback. */
+  naturalLanguageInterface: {
+    /** Natural-language fallback is disabled unless explicitly enabled. */
+    enabled: boolean;
+    /** Codex CLI executable or absolute path. */
+    codexExecutable: string;
+    /** Maximum provider request duration in milliseconds. */
+    requestTimeoutMs: number;
+    /** Maximum failed input length sent for interpretation. */
+    maxInputChars: number;
+    /** Maximum command choices shown for one interpretation. */
+    maxOptions: number;
+    /** Include the current working directory only after privacy consent. */
+    includeWorkingDirectory: boolean;
+    /** Include bounded repository metadata only after privacy consent. */
+    includeGitMetadata: boolean;
+  };
 };
 
 type profileConfigOptions = {
@@ -190,6 +207,8 @@ type profileConfigOptions = {
    * keypress required for weblink activation: [ctrl | alt | meta | shift]
    */
   webLinksActivationKey: 'ctrl' | 'alt' | 'meta' | 'shift' | '';
+  /** Open web links in the operating system browser by default, or opt in to a hardened Hyper popup. */
+  webLinksOpenMode: 'system' | 'internal';
   /** Initial window size in pixels */
   windowSize?: [number, number];
   /** set custom startup directory (must be an absolute path) */

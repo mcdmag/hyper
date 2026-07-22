@@ -21,6 +21,12 @@ In the future, we anticipate the community will come up with innovative addition
 
 [Download the latest release!](https://hyper.is/#installation)
 
+### Natural-language fallback
+
+Hyper can optionally ask Codex for PowerShell command suggestions after the original terminal reports an authoritative command-not-found error. The feature is off by default, every entry still runs through the terminal first, and generated commands require review and approval before Hyper writes them to the original pane.
+
+See [Natural language interface](docs/natural-language-interface.md) for setup, supported shells, privacy boundaries, troubleshooting, and maintainer verification.
+
 ### Linux
 #### Arch and derivatives
 Hyper is available in the [AUR](https://aur.archlinux.org/packages/hyper/). Use an AUR [package manager](https://wiki.archlinux.org/index.php/AUR_helpers) e.g. [paru](https://github.com/Morganamilo/paru)
@@ -88,6 +94,8 @@ pnpm run dist
 ```
 
 After that, you will see the binary in the `./dist` folder!
+
+Changes to the natural-language interface have additional unit, Electron, and packaged-Windows checks documented in [the NLI maintainer guide](docs/natural-language-interface.md#maintainer-guide). Pull requests for this repository must explicitly target the `dev` branch.
 
 #### Known issues that can happen during development
 

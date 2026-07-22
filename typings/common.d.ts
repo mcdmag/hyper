@@ -5,6 +5,17 @@ import type {IpcMain, IpcRenderer} from 'electron';
 import type parseUrl from 'parse-url';
 
 import type {configOptions} from './config';
+import type {
+  NliApprovalRequest,
+  NliAuthState,
+  NliAttemptRequest,
+  NliClarificationRequest,
+  NliDisplayState,
+  NliEditRequest,
+  NliPlanRequest,
+  NliPrivacyPreferences,
+  SessionUid
+} from './nli';
 
 export type Session = {
   uid: string;
@@ -41,16 +52,37 @@ export type MainEvents = {
   new: sessionExtraOptions;
   'open context menu': string;
   'open external': {url: string};
+  'open link': {url: string};
   'open hamburger menu': {x: number; y: number};
   'quit and install': never;
   resize: {uid: string; cols: number; rows: number};
   unmaximize: never;
+  'nli approve': NliApprovalRequest;
+  'nli cancel': NliAttemptRequest;
+  'nli cancel login': {sessionUid: SessionUid};
+  'nli clarify': NliClarificationRequest;
+  'nli edit': NliEditRequest;
+  'nli login': {sessionUid: SessionUid};
+  'nli logout': {sessionUid: SessionUid};
+  'nli privacy': {
+    sessionUid: SessionUid;
+    preferences: Omit<NliPrivacyPreferences, 'privacyNoticeVersion'>;
+  };
+  'nli reset privacy': {sessionUid: SessionUid};
+  'nli reject': NliPlanRequest;
+  'nli retry': NliAttemptRequest;
+  'nli status': {sessionUid: SessionUid};
 };
 
 export type RendererEvents = {
   ready: never;
   'add notification': {text: string; url: string; dismissable: boolean};
-  'update available': {releaseNotes: string; releaseName: string; releaseUrl: string; canInstall: boolean};
+  'update available': {
+    releaseNotes: string;
+    releaseName: string;
+    releaseUrl: string;
+    canInstall: boolean;
+  };
   'open ssh': ReturnType<typeof parseUrl>;
   'open file': {path: string};
   'move jump req': number | 'last';
@@ -91,12 +123,18 @@ export type RendererEvents = {
   'enter full screen': never;
   'leave full screen': never;
   'session data send': {uid: string | null; data: string; escaped?: boolean};
+  'nli state': NliDisplayState;
+  'nli auth state': {sessionUid: SessionUid; auth: NliAuthState};
+  'nli setup req': never;
+  'nli terminal focus': {sessionUid: SessionUid};
 };
 
 /**
  * Get keys of T where the value is not never
  */
-export type FilterNever<T> = {[K in keyof T]: T[K] extends never ? never : K}[keyof T];
+export type FilterNever<T> = {
+  [K in keyof T]: T[K] extends never ? never : K;
+}[keyof T];
 
 export interface TypedEmitter<Events> {
   on<E extends keyof Events>(event: E, listener: (args: Events[E]) => void): this;

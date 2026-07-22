@@ -1,4 +1,4 @@
-import {clipboard, shell} from 'electron';
+import {clipboard} from 'electron';
 import React from 'react';
 
 import Color from 'color';
@@ -217,7 +217,7 @@ export default class Term extends React.PureComponent<
       this.term.loadAddon(this.searchAddon);
       this.term.loadAddon(
         new WebLinksAddon((event, uri) => {
-          if (shallActivateWebLink(event)) void shell.openExternal(uri);
+          if (shallActivateWebLink(event)) window.rpc.emit('open link', {url: uri});
         })
       );
       this.term.open(this.termRef);

@@ -574,7 +574,7 @@ test('cancel aborts one matching attempt and ignores opaque ID mismatches', asyn
   t.is(harness.states.at(-1)?.status, 'cancelled');
 });
 
-test('new user input invalidates assistance without moving work ahead of Session.write', async (t) => {
+test('new user input invalidates assistance before Session.write while xterm protocol replies remain neutral', async (t) => {
   const harness = makeHarness({
     privacyNoticeVersion: 1,
     includeWorkingDirectory: false,
@@ -589,7 +589,10 @@ test('new user input invalidates assistance without moving work ahead of Session
   t.is(harness.states.at(-1)?.status, 'stale');
 
   const windowSource = readFileSync(projectPath('app', 'ui', 'window.ts'), 'utf8');
-  t.regex(windowSource, /session\.write\(data\);\s*nliService\.onUserInput/);
+  t.regex(windowSource, /nliService\.onUserInput[\s\S]*session\.write\(data\)/);
+  t.regex(windowSource, /data === '\\u001b\[I'[\s\S]*data === '\\u001b\[O'/);
+  t.regex(windowSource, /if \(!isNliNeutralTerminalReply\(data\)\) nliService\.onUserInput/);
+  t.regex(windowSource, /realpathSync\.native\(value\)/);
   t.regex(
     windowSource,
     /session\.on\('data',[\s\S]*?rpc\.emit\('session data', data\)[\s\S]*?session\.on\(NLI_SESSION_EVENTS\.shellSemantic/

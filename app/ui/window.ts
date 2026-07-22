@@ -1,4 +1,4 @@
-import {existsSync} from 'fs';
+import {existsSync, realpathSync} from 'fs';
 import {isAbsolute, normalize, sep} from 'path';
 import {URL, fileURLToPath} from 'url';
 
@@ -18,6 +18,7 @@ import {getDefaultProfile} from '../config';
 import {icon, homeDirectory} from '../config/paths';
 import {CodexAppServerProvider} from '../nli/codex-app-server';
 import {cryptoNonceSource, nodeChildProcessFactory, systemClock} from '../nli/dependencies';
+import {NliE2eFixtureProvider} from '../nli/e2e-fixture-provider';
 import {NLI_RPC_EVENTS, NLI_SESSION_EVENTS} from '../nli/events';
 import {executeApprovedCommand} from '../nli/execution';
 import {collectNliGitMetadata} from '../nli/git-metadata';
@@ -33,6 +34,19 @@ import {setRendererType, unsetRendererType} from '../utils/renderer-utils';
 import toElectronBackgroundColor from '../utils/to-electron-background-color';
 
 import contextMenuTemplate from './contextmenu';
+
+const isNliNeutralTerminalReply = (data: string) =>
+  data === '\u001b[I' ||
+  data === '\u001b[O' ||
+  (data.startsWith('\u001b[?') && data.endsWith('c') && /^[0-9;]*$/.test(data.slice(3, -1)));
+
+const canonicalWorkingDirectory = (value: string) => {
+  try {
+    return realpathSync.native(value);
+  } catch (_error) {
+    return value;
+  }
+};
 
 export function newWindow(
   options_: BrowserWindowConstructorOptions,
@@ -81,18 +95,25 @@ export function newWindow(
     approvalIdentity: {windowId: window.id, rendererId: window.webContents.id},
     enabled: () => cfg.naturalLanguageInterface.enabled,
     preferences: createNliPreferencesStore(app.getPath('userData')),
-    providerFactory: () =>
-      new CodexAppServerProvider({
-        executable: cfg.naturalLanguageInterface.codexExecutable,
-        userDataPath: app.getPath('userData'),
-        requestTimeoutMs: cfg.naturalLanguageInterface.requestTimeoutMs,
-        maxOptions: cfg.naturalLanguageInterface.maxOptions,
-        childProcessFactory: nodeChildProcessFactory,
-        openExternal: (url) => shell.openExternal(url)
-      }),
+    providerFactory: () => {
+      const fixturePath = process.env.HYPER_NLI_E2E_FIXTURE;
+      return fixturePath
+        ? new NliE2eFixtureProvider(fixturePath)
+        : new CodexAppServerProvider({
+            executable: cfg.naturalLanguageInterface.codexExecutable,
+            userDataPath: app.getPath('userData'),
+            requestTimeoutMs: cfg.naturalLanguageInterface.requestTimeoutMs,
+            maxOptions: cfg.naturalLanguageInterface.maxOptions,
+            childProcessFactory: nodeChildProcessFactory,
+            openExternal: (url) => shell.openExternal(url)
+          });
+    },
     clock: systemClock,
     nonceSource: cryptoNonceSource,
-    emitState: (state) => rpc.emit(NLI_RPC_EVENTS.state, state),
+    emitState: (state) => {
+      if (process.env.HYPER_NLI_E2E_FIXTURE) console.log('HYPER_NLI_E2E_STATE', state.status);
+      rpc.emit(NLI_RPC_EVENTS.state, state);
+    },
     getSessionSnapshot: (sessionUid) => {
       const session = sessions.get(sessionUid);
       const pid = session?.pty?.pid;
@@ -100,7 +121,10 @@ export function newWindow(
       try {
         return {
           shell: session.shell,
-          workingDirectory: getWorkingDirectoryFromPID(pid) || undefined
+          workingDirectory: (() => {
+            const workingDirectory = getWorkingDirectoryFromPID(pid);
+            return workingDirectory ? canonicalWorkingDirectory(workingDirectory) : undefined;
+          })()
         };
       } catch (_error) {
         return {shell: session.shell};
@@ -249,6 +273,7 @@ export function newWindow(
     });
 
     session.on(NLI_SESSION_EVENTS.shellSemantic, (event: ShellSemanticEvent) => {
+      if (process.env.HYPER_NLI_E2E_FIXTURE) console.log('HYPER_NLI_E2E_SEMANTIC', event.sessionUid);
       nliService.onCommandNotFound(event);
     });
 
@@ -284,16 +309,18 @@ export function newWindow(
   rpc.on('data', ({uid, data, escaped}) => {
     const session = uid && sessions.get(uid);
     if (session) {
+      // Focus and device-attribute replies are xterm protocol traffic, not a
+      // new user command. Everything else invalidates an earlier review before
+      // the PTY can synchronously surface a command-not-found event.
+      if (!isNliNeutralTerminalReply(data)) nliService.onUserInput(uid as SessionUid);
       if (escaped) {
         const escapedData = session.shell?.endsWith('cmd.exe')
           ? `"${data}"` // This is how cmd.exe does it
           : `'${data.replace(/'/g, `'\\''`)}'`; // Inside a single-quoted string nothing is interpreted
 
         session.write(escapedData);
-        nliService.onUserInput(uid as SessionUid);
       } else {
         session.write(data);
-        nliService.onUserInput(uid as SessionUid);
       }
     }
   });

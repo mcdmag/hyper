@@ -330,6 +330,8 @@ test('component source preserves safe focus, keyboard, narrow, and reduced-motio
   t.regex(source, /event\.key !== 'Escape'/);
   t.regex(source, /onRestoreTerminalFocus/);
   t.regex(source, /@media \(max-width: 480px\)/);
+  t.regex(source, /min-width: 0;/);
+  t.regex(source, /max-width: 100%;/);
   t.regex(source, /@media \(prefers-reduced-motion: reduce\)/);
   t.regex(source, /user-select: text/);
   t.false(source.includes('dangerouslySetInnerHTML'));

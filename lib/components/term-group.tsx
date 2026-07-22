@@ -128,6 +128,7 @@ class TermGroup_ extends React.PureComponent<TermGroupProps> {
         <style jsx>{`
           .termgroup_termWithNli {
             display: grid;
+            grid-template-columns: minmax(0, 1fr);
             grid-template-rows: minmax(0, 1fr) auto;
             width: 100%;
             height: 100%;

@@ -147,8 +147,10 @@ const NliPanel = (props: NliPanelProps) => {
         : 'closed';
 
   useEffect(() => {
-    if (visible && props.active) headingRef.current?.focus({preventScroll: true});
-  }, [props.active, viewKey, visible]);
+    const terminalOwnsFocus =
+      display?.status === 'sent' || (display && 'code' in display && display.code === 'NLI_WRITE_FAILED');
+    if (visible && props.active && !terminalOwnsFocus) headingRef.current?.focus({preventScroll: true});
+  }, [display?.status, props.active, viewKey, visible]);
 
   useEffect(() => {
     if (display?.status === 'clarification') setClarificationChoice(display.choices[0]?.optionId);
@@ -640,6 +642,8 @@ const NliPanel = (props: NliPanelProps) => {
         .nli_panel {
           position: relative;
           width: 100%;
+          min-width: 0;
+          max-width: 100%;
           max-height: min(58vh, 430px);
           overflow: auto;
           box-sizing: border-box;

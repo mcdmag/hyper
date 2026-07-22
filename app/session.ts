@@ -207,6 +207,7 @@ export default class Session extends EventEmitter {
       TERM_PROGRAM_VERSION: version,
       ...envFromConfig
     };
+    delete baseEnv.HYPER_NLI_E2E_FIXTURE;
     // path to AppImage mount point is added to PATH environment variable automatically
     // which conflicts with the cli
     if (baseEnv['APPIMAGE'] && baseEnv['APPDIR']) {

@@ -63,6 +63,15 @@
     "preserveCWD": true,
     "screenReaderMode": false,
     "imageSupport": true,
+    "naturalLanguageInterface": {
+      "enabled": false,
+      "codexExecutable": "codex",
+      "requestTimeoutMs": 30000,
+      "maxInputChars": 4096,
+      "maxOptions": 3,
+      "includeWorkingDirectory": false,
+      "includeGitMetadata": false
+    },
     "defaultProfile": "default",
     "profiles": [
       {

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "feature": "e2e:unknown:nli-default-off-and-opaque-approval-contract",
+  "obligations": [
+    {
+      "id": "e2e:unknown:nli-default-off-and-opaque-approval-contract",
+      "kind": "e2e",
+      "surface": "unknown",
+      "flow": "NLI default-off and opaque-approval contract",
+      "status": "pending",
+      "deferReason": "Task 00 defines compile-time/runtime seams only; the packaged renderer/main flow is implemented and exercised in Tasks 03-08.",
+      "createdInTask": "Task 00: Establish contracts, configuration, and seams"
+    },
+    {
+      "id": "visual:per-pane-nli-panel:nli-proposal-and-approval-panel",
+      "kind": "visual",
+      "surface": "per-pane NLI panel",
+      "flow": "NLI proposal and approval panel",
+      "status": "pending",
+      "deferReason": "Task 00 has no rendered UI; visual mockups and implemented screenshots are produced in Tasks 01, 06, and 08.",
+      "createdInTask": "Task 00: Establish contracts, configuration, and seams"
+    }
+  ]
+}

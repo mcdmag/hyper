@@ -185,6 +185,14 @@ export type NliDisplayState =
       readonly attemptId: AttemptId;
     }
   | {
+      readonly status: 'cancelled';
+      readonly sessionUid: SessionUid;
+      readonly attemptId: AttemptId;
+      readonly code: 'NLI_CANCELLED';
+      readonly correlationId: string;
+      readonly message: string;
+    }
+  | {
       readonly status: 'error' | 'stale';
       readonly sessionUid: SessionUid;
       readonly attemptId?: AttemptId;
@@ -298,4 +306,30 @@ export interface NliDependencies {
   readonly childProcessFactory: NliChildProcessFactory;
   readonly nonceSource: NliNonceSource;
   readonly providerFactory: () => NliProvider;
+}
+
+export type NliLifecycleStatus =
+  | 'idle'
+  | 'detected'
+  | 'privacy-required'
+  | 'auth-required'
+  | 'interpreting'
+  | 'review'
+  | 'clarification'
+  | 'approving'
+  | 'sent'
+  | 'cancelled'
+  | 'error'
+  | 'stale';
+
+export interface NliSessionSnapshot {
+  readonly shell: string | null;
+  readonly workingDirectory?: string;
+}
+
+export interface NliDiagnostic {
+  readonly severity: 'warning' | 'error';
+  readonly code: NliErrorCode;
+  readonly component: 'service';
+  readonly correlationId: string;
 }

@@ -12,9 +12,15 @@ import {v4 as uuidv4} from 'uuid';
 
 import type {sessionExtraOptions} from '../../typings/common';
 import type {configOptions} from '../../typings/config';
+import type {NliErrorCode, SessionUid, ShellSemanticEvent} from '../../typings/nli';
 import {execCommand} from '../commands';
 import {getDefaultProfile} from '../config';
 import {icon, homeDirectory} from '../config/paths';
+import {cryptoNonceSource, systemClock} from '../nli/dependencies';
+import {NLI_RPC_EVENTS, NLI_SESSION_EVENTS} from '../nli/events';
+import {collectNliGitMetadata} from '../nli/git-metadata';
+import {createNliPreferencesStore} from '../nli/preferences';
+import {NliService} from '../nli/service';
 import fetchNotifications from '../notifications';
 import notify from '../notify';
 import {decorateSessionOptions, decorateSessionClass} from '../plugins';
@@ -68,6 +74,36 @@ export function newWindow(
 
   const rpc = createRPC(window);
   const sessions = new Map<string, Session>();
+  const nliService = new NliService({
+    windowUid: window.uid,
+    enabled: () => cfg.naturalLanguageInterface.enabled,
+    preferences: createNliPreferencesStore(app.getPath('userData')),
+    providerFactory: () => {
+      throw Object.assign(new Error('Codex provider is not available'), {
+        code: 'NLI_CODEX_INCOMPATIBLE' satisfies NliErrorCode
+      });
+    },
+    clock: systemClock,
+    nonceSource: cryptoNonceSource,
+    emitState: (state) => rpc.emit(NLI_RPC_EVENTS.state, state),
+    getSessionSnapshot: (sessionUid) => {
+      const session = sessions.get(sessionUid);
+      const pid = session?.pty?.pid;
+      if (!session || pid === undefined) return undefined;
+      try {
+        return {
+          shell: session.shell,
+          workingDirectory: getWorkingDirectoryFromPID(pid) || undefined
+        };
+      } catch (_error) {
+        return {shell: session.shell};
+      }
+    },
+    includeWorkingDirectory: () => cfg.naturalLanguageInterface.includeWorkingDirectory,
+    includeGitMetadata: () => cfg.naturalLanguageInterface.includeGitMetadata,
+    maxOptions: () => cfg.naturalLanguageInterface.maxOptions,
+    collectGitMetadata: collectNliGitMetadata
+  });
 
   const updateBackgroundColor = () => {
     const cfg_ = app.plugins.getDecoratedConfig(profileName);
@@ -76,6 +112,7 @@ export function newWindow(
 
   // config changes
   const cfgUnsubscribe = app.config.subscribe(() => {
+    const wasNliEnabled = cfg.naturalLanguageInterface.enabled;
     const cfg_ = app.plugins.getDecoratedConfig(profileName);
 
     // notify renderer
@@ -90,6 +127,9 @@ export function newWindow(
     updateBackgroundColor();
 
     cfg = cfg_;
+    if (wasNliEnabled && !cfg.naturalLanguageInterface.enabled) {
+      void nliService.setEnabled(false);
+    }
   });
 
   rpc.on('init', () => {
@@ -201,7 +241,12 @@ export function newWindow(
       rpc.emit('session data', data);
     });
 
+    session.on(NLI_SESSION_EVENTS.shellSemantic, (event: ShellSemanticEvent) => {
+      nliService.onCommandNotFound(event);
+    });
+
     session.on('exit', () => {
+      nliService.disposeSession(options.uid as SessionUid);
       rpc.emit('session exit', {uid: options.uid});
       unsetRendererType(options.uid);
       sessions.delete(options.uid);
@@ -238,10 +283,24 @@ export function newWindow(
           : `'${data.replace(/'/g, `'\\''`)}'`; // Inside a single-quoted string nothing is interpreted
 
         session.write(escapedData);
+        nliService.onUserInput(uid as SessionUid);
       } else {
         session.write(data);
+        nliService.onUserInput(uid as SessionUid);
       }
     }
+  });
+  rpc.on(NLI_RPC_EVENTS.cancel, (request) => {
+    nliService.cancel(request);
+  });
+  rpc.on(NLI_RPC_EVENTS.retry, (request) => {
+    nliService.retry(request);
+  });
+  rpc.on(NLI_RPC_EVENTS.login, ({sessionUid}) => {
+    void nliService.login(sessionUid);
+  });
+  rpc.on(NLI_RPC_EVENTS.logout, () => {
+    void nliService.logout();
   });
   rpc.on('info renderer', ({uid, type}) => {
     // Used in the "About" dialog
@@ -286,6 +345,7 @@ export function newWindow(
   });
   const deleteSessions = () => {
     sessions.forEach((session, key) => {
+      nliService.disposeSession(key as SessionUid);
       session.removeAllListeners();
       session.destroy();
       sessions.delete(key);
@@ -361,6 +421,7 @@ export function newWindow(
   // the window can be closed by the browser process itself
   window.clean = () => {
     app.config.winRecord(window);
+    void nliService.dispose();
     rpc.destroy();
     deleteSessions();
     cfgUnsubscribe();

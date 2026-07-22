@@ -169,7 +169,10 @@ export function newWindow(
       extraOptionsFiltered,
       {
         profile: extraOptionsFiltered.profile || profileName,
-        uid
+        uid,
+        windowUid: window.uid,
+        nliUserDataPath: app.getPath('userData'),
+        naturalLanguageInterface: profileCfg.naturalLanguageInterface
       }
     );
     const options = decorateSessionOptions(defaultOptions);

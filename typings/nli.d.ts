@@ -29,6 +29,7 @@ export type NliErrorCode =
   | 'NLI_VALIDATION_FAILED';
 
 export interface ShellSemanticEvent {
+  readonly windowUid: string;
   readonly sessionUid: SessionUid;
   readonly callbackId: CallbackId;
   readonly reason: 'command-not-found';
@@ -36,8 +37,9 @@ export interface ShellSemanticEvent {
   readonly shellFamily: ShellFamily;
   readonly shellVersion: string;
   readonly historyId?: string;
-  readonly currentProviderPath: string;
-  readonly nonceProof: string;
+  readonly providerName: string;
+  readonly cwdFingerprint: string;
+  readonly workingDirectory?: string;
 }
 
 export interface NliAttempt {
@@ -233,6 +235,19 @@ export interface PreparedShellIntegration {
   readonly dispose: () => void | Promise<void>;
 }
 
+export interface PowerShellIntegrationOptions {
+  readonly sessionUid: string;
+  readonly nonce: string;
+  readonly scriptDirectory: string;
+  readonly windowUid?: string;
+  readonly maxInputChars?: number;
+}
+
+export interface PowerShellIntegration {
+  readonly scriptPath: string;
+  readonly dispose: () => void;
+}
+
 export type ShellIntegrationDecision =
   | {
       readonly supported: false;
@@ -252,7 +267,7 @@ export type SupportedShellIntegrationDecision = Extract<ShellIntegrationDecision
 export interface ShellIntegrationAdapter {
   readonly family: ShellFamily;
   detect(shell: string, args: readonly string[], enabled: boolean): ShellIntegrationDecision;
-  prepare(sessionUid: SessionUid, decision: SupportedShellIntegrationDecision): Promise<PreparedShellIntegration>;
+  prepare(sessionUid: SessionUid, decision: SupportedShellIntegrationDecision): PreparedShellIntegration;
 }
 
 export interface NliProvider {

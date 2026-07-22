@@ -8,3 +8,7 @@ export const NLI_RPC_EVENTS = {
   retry: 'nli retry',
   state: 'nli state'
 } as const;
+
+export const NLI_SESSION_EVENTS = {
+  shellSemantic: 'nli shell semantic'
+} as const;

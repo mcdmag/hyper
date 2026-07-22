@@ -14,13 +14,13 @@ Make web links open in the operating system's default browser unless the user ex
 
 ## Implementation
 
-- [ ] Add a failing `test/unit/link-opening.test.ts` matrix for direct HTTP(S), system/internal `about:blank`, hidden bridge navigation/timeout, malformed/unsupported URLs, external-launch rejection, both internal creation paths, secure internal options, nested requests, repeated child close, and config default/profile merge.
-- [ ] Add `app/utils/link-opening.ts` with deterministic URL decisions, redacted external-launch errors, direct internal child creation/loading, hidden bridge management with `SYSTEM_LINK_BRIDGE_TIMEOUT_MS = 5000`, hardened BrowserWindow options, and idempotent owner recovery.
-- [ ] Add `webLinksOpenMode: 'system' | 'internal'` to the default config and public type; regenerate `app/config/schema.json`.
-- [ ] Add typed `open link` RPC plumbing and route terminal plus notification hyperlinks through it; preserve existing explicit `open external` and Help/menu behavior.
-- [ ] Refactor `app/ui/window.ts` so `will-navigate` alone owns dropped URL behavior, `setWindowOpenHandler` enforces the current profile policy, and `did-create-window` manages each internal child.
-- [ ] Extend `test/index.ts` to write a temporary `XDG_CONFIG_HOME/Hyper/hyper.json` set to internal mode, start a loopback Node HTTP fixture, and run the packaged Electron popup close-to-owner seam; keep all system-browser calls mocked in unit tests and clean both fixtures in teardown.
-- [ ] Run the full verification set, update plan evidence if implementation paths differ, and call `cue_plan_promote` before `cue_done` if Cue's lightweight scope guard reports more than two new files or 100 changed lines; promotion must not defer any requested behavior.
+- [x] Add a failing `test/unit/link-opening.test.ts` matrix for direct HTTP(S), system/internal `about:blank`, hidden bridge navigation/timeout, malformed/unsupported URLs, external-launch rejection, both internal creation paths, secure internal options, nested requests, repeated child close, and config default/profile merge.
+- [x] Add `app/utils/link-opening.ts` with deterministic URL decisions, redacted external-launch errors, direct internal child creation/loading, hidden bridge management with `SYSTEM_LINK_BRIDGE_TIMEOUT_MS = 5000`, hardened BrowserWindow options, and idempotent owner recovery.
+- [x] Add `webLinksOpenMode: 'system' | 'internal'` to the default config and public type; regenerate `app/config/schema.json`.
+- [x] Add typed `open link` RPC plumbing and route terminal plus notification hyperlinks through it; preserve existing explicit `open external` and Help/menu behavior.
+- [x] Refactor `app/ui/window.ts` so `will-navigate` alone owns dropped URL behavior, `setWindowOpenHandler` enforces the current profile policy, and `did-create-window` manages each internal child.
+- [x] Extend `test/index.ts` to write a temporary `XDG_CONFIG_HOME/Hyper/hyper.json` set to internal mode, start a loopback Node HTTP fixture, and run the packaged Electron popup close-to-owner seam; keep all system-browser calls mocked in unit tests and clean both fixtures in teardown.
+- [x] Run the full verification set, update plan evidence if implementation paths differ, and call `cue_plan_promote` before `cue_done` if Cue's lightweight scope guard reports more than two new files or 100 changed lines; promotion must not defer any requested behavior.
 
 ## State Contracts
 
@@ -34,25 +34,25 @@ Make web links open in the operating system's default browser unless the user ex
 
 ## Acceptance Criteria
 
-- [ ] With the key omitted, root config omitted, or profile override omitted, effective mode is `system`; an explicit profile `internal` value survives merge and reload.
-- [ ] System mode opens each direct HTTP(S) request exactly once through mocked `shell.openExternal`, creates zero visible child windows, and catches rejection without changing owner URL, renderer process, or sessions.
-- [ ] A system-mode `about:blank` flow creates only a hardened hidden bridge; its first safe navigation launches externally and destroys it, unsupported navigation is denied, and timeout cleanup returns child count to baseline.
-- [ ] Internal RPC and `window.open` paths each create one child whose options set `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`, and `outlivesOpener: false`.
-- [ ] Invoking recovery more than once in unit tests is idempotent; across repeated real popup cycles the same owner becomes visible/focused, its captured frame is non-empty, its URL/renderer/session IDs are unchanged, and BrowserWindow count returns to baseline.
-- [ ] Malformed URLs and unsupported protocols are denied without shell launch or visible child creation; internal and bridge children cannot later navigate to an unsupported protocol.
-- [ ] Nested popup attempts are subject to the same allowlist and lifecycle policy.
-- [ ] Existing `open external` RPC and Help/menu system-browser behavior remain unchanged.
-- [ ] External-launch diagnostics never contain the requested URL, and no telemetry event is introduced.
-- [ ] Generated schema exposes the two enum values and is stable on a second generation.
+- [x] With the key omitted, root config omitted, or profile override omitted, effective mode is `system`; an explicit profile `internal` value survives merge and reload.
+- [x] System mode opens each direct HTTP(S) request exactly once through mocked `shell.openExternal`, creates zero visible child windows, and catches rejection without changing owner URL, renderer process, or sessions.
+- [x] A system-mode `about:blank` flow creates only a hardened hidden bridge; its first safe navigation launches externally and destroys it, unsupported navigation is denied, and timeout cleanup returns child count to baseline.
+- [x] Internal RPC and `window.open` paths each create one child whose options set `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`, and `outlivesOpener: false`.
+- [x] Invoking recovery more than once in unit tests is idempotent; across repeated real popup cycles the same owner becomes visible/focused, its captured frame is non-empty, its URL/renderer/session IDs are unchanged, and BrowserWindow count returns to baseline.
+- [x] Malformed URLs and unsupported protocols are denied without shell launch or visible child creation; internal and bridge children cannot later navigate to an unsupported protocol.
+- [x] Nested popup attempts are subject to the same allowlist and lifecycle policy.
+- [x] Existing `open external` RPC and Help/menu system-browser behavior remain unchanged.
+- [x] External-launch diagnostics never contain the requested URL, and no telemetry event is introduced.
+- [x] Generated schema exposes the two enum values and is stable on a second generation.
 
 ## Verify
 
-- [ ] `pnpm exec ava test/unit/link-opening.test.ts`
-- [ ] `pnpm run generate-schema`
-- [ ] After committing generated output: `pnpm run generate-schema && git diff --exit-code -- app/config/schema.json`
-- [ ] `rg -n 'webLinksOpenMode|open link' app lib typings test`
-- [ ] `pnpm run lint`
-- [ ] `pnpm exec tsc -b --pretty false`
-- [ ] `pnpm run test:unit`
-- [ ] `pnpm run dist && pnpm run test:e2e`
-- [ ] All implementation commits contain the trailer `Spec-ref: 002-external-link-browser-default`.
+- [x] `pnpm exec ava test/unit/link-opening.test.ts`
+- [x] `pnpm run generate-schema`
+- [x] After committing generated output: `pnpm run generate-schema && git diff --exit-code -- app/config/schema.json`
+- [x] `rg -n 'webLinksOpenMode|open link' app lib typings test`
+- [x] `pnpm run lint`
+- [x] `pnpm exec tsc -b --pretty false`
+- [x] `pnpm run test:unit`
+- [x] `pnpm run dist && pnpm run test:e2e`
+- [x] All implementation commits contain the trailer `Spec-ref: 002-external-link-browser-default`.

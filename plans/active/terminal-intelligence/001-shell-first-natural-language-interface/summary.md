@@ -137,7 +137,7 @@ The final cross-window/provider seam was rechecked with TypeScript, ESLint, and 
 
 ## Pull Request
 
-_Pending — filled in by feature-completion.ts after `gh pr create`._
+[PR #5 — feat: add shell-first natural-language fallback](https://github.com/mcdmag/hyper/pull/5), targeting `dev`.
 
 ## Plan Location
 

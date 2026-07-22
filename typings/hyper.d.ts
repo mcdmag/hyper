@@ -43,6 +43,7 @@ export type ITermState = Immutable<{
 export type cursorShapes = 'BEAM' | 'UNDERLINE' | 'BLOCK';
 import type {FontWeight, IWindowsPty, Terminal} from 'xterm';
 import type {ColorMap, configOptions} from './config';
+import type {NliRendererSessionState} from './nli';
 
 export type uiState = Immutable<{
   _lastUpdate: number | null;
@@ -133,11 +134,18 @@ export type sessionState = Immutable<{
   write?: any;
 }>;
 
+export type nliState = Immutable<{
+  enabled: boolean;
+  sessions: Record<string, NliRendererSessionState>;
+}>;
+
 export type ITermGroupReducer = Reducer<ITermState, HyperActions>;
 
 export type IUiReducer = Reducer<uiState, HyperActions>;
 
 export type ISessionReducer = Reducer<sessionState, HyperActions>;
+
+export type INliReducer = Reducer<nliState, HyperActions>;
 
 import type {Middleware, Reducer} from 'redux';
 export type hyperPlugin = {
@@ -167,6 +175,7 @@ export type HyperState = {
   ui: uiState;
   sessions: sessionState;
   termGroups: ITermState;
+  nli: nliState;
 };
 
 import type {UIActions} from './constants/ui';
@@ -177,6 +186,7 @@ import type {UpdateActions} from './constants/updater';
 import type {TermGroupActions} from './constants/term-groups';
 import type {InitActions} from './constants';
 import type {TabActions} from './constants/tabs';
+import type {NliActions} from './constants/nli';
 
 export type HyperActions = (
   | UIActions
@@ -185,6 +195,7 @@ export type HyperActions = (
   | NotificationActions
   | UpdateActions
   | TermGroupActions
+  | NliActions
   | InitActions
   | TabActions
 ) & {effect?: () => void};

@@ -1,9 +1,9 @@
-import {existsSync} from 'fs';
+import {existsSync, realpathSync} from 'fs';
 import {isAbsolute, normalize, sep} from 'path';
 import {URL, fileURLToPath} from 'url';
 
 import {app, BrowserWindow, shell, Menu} from 'electron';
-import type {BrowserWindowConstructorOptions} from 'electron';
+import type {BrowserWindowConstructorOptions, IpcMainEvent} from 'electron';
 
 import {enable as remoteEnable} from '@electron/remote/main';
 import isDev from 'electron-is-dev';
@@ -12,9 +12,19 @@ import {v4 as uuidv4} from 'uuid';
 
 import type {sessionExtraOptions} from '../../typings/common';
 import type {configOptions} from '../../typings/config';
+import type {SessionUid, ShellSemanticEvent} from '../../typings/nli';
 import {execCommand} from '../commands';
 import {getDefaultProfile} from '../config';
 import {icon, homeDirectory} from '../config/paths';
+import {CodexAppServerProvider} from '../nli/codex-app-server';
+import {cryptoNonceSource, nodeChildProcessFactory, systemClock} from '../nli/dependencies';
+import {NliE2eFixtureProvider} from '../nli/e2e-fixture-provider';
+import {NLI_RPC_EVENTS, NLI_SESSION_EVENTS} from '../nli/events';
+import {executeApprovedCommand} from '../nli/execution';
+import {collectNliGitMetadata} from '../nli/git-metadata';
+import {createNliPreferencesStore} from '../nli/preferences';
+import {NliService} from '../nli/service';
+import {nliWindowCoordinator} from '../nli/window-coordinator';
 import fetchNotifications from '../notifications';
 import notify from '../notify';
 import {decorateSessionOptions, decorateSessionClass} from '../plugins';
@@ -25,6 +35,19 @@ import {setRendererType, unsetRendererType} from '../utils/renderer-utils';
 import toElectronBackgroundColor from '../utils/to-electron-background-color';
 
 import contextMenuTemplate from './contextmenu';
+
+const isNliNeutralTerminalReply = (data: string) =>
+  data === '\u001b[I' ||
+  data === '\u001b[O' ||
+  (data.startsWith('\u001b[?') && data.endsWith('c') && /^[0-9;]*$/.test(data.slice(3, -1)));
+
+const canonicalWorkingDirectory = (value: string) => {
+  try {
+    return realpathSync.native(value);
+  } catch (_error) {
+    return value;
+  }
+};
 
 export function newWindow(
   options_: BrowserWindowConstructorOptions,
@@ -68,6 +91,59 @@ export function newWindow(
 
   const rpc = createRPC(window);
   const sessions = new Map<string, Session>();
+  const nliService = new NliService({
+    windowUid: window.uid,
+    approvalIdentity: {windowId: window.id, rendererId: window.webContents.id},
+    enabled: () => cfg.naturalLanguageInterface.enabled,
+    preferences: createNliPreferencesStore(app.getPath('userData')),
+    providerFactory: () => {
+      const fixturePath = process.env.HYPER_NLI_E2E_FIXTURE;
+      return fixturePath
+        ? new NliE2eFixtureProvider(fixturePath)
+        : new CodexAppServerProvider({
+            executable: cfg.naturalLanguageInterface.codexExecutable,
+            userDataPath: app.getPath('userData'),
+            requestTimeoutMs: cfg.naturalLanguageInterface.requestTimeoutMs,
+            maxOptions: cfg.naturalLanguageInterface.maxOptions,
+            childProcessFactory: nodeChildProcessFactory,
+            openExternal: (url) => shell.openExternal(url)
+          });
+    },
+    clock: systemClock,
+    nonceSource: cryptoNonceSource,
+    emitState: (state) => {
+      if (process.env.HYPER_NLI_E2E_FIXTURE) console.log('HYPER_NLI_E2E_STATE', state.status);
+      rpc.emit(NLI_RPC_EVENTS.state, state);
+    },
+    getSessionSnapshot: (sessionUid) => {
+      const session = sessions.get(sessionUid);
+      const pid = session?.pty?.pid;
+      if (!session || pid === undefined) return undefined;
+      try {
+        return {
+          shell: session.shell,
+          workingDirectory: (() => {
+            const workingDirectory = getWorkingDirectoryFromPID(pid);
+            return workingDirectory ? canonicalWorkingDirectory(workingDirectory) : undefined;
+          })()
+        };
+      } catch (_error) {
+        return {shell: session.shell};
+      }
+    },
+    includeWorkingDirectory: () => cfg.naturalLanguageInterface.includeWorkingDirectory,
+    includeGitMetadata: () => cfg.naturalLanguageInterface.includeGitMetadata,
+    maxOptions: () => cfg.naturalLanguageInterface.maxOptions,
+    collectGitMetadata: collectNliGitMetadata
+  });
+  const unregisterNliWindow = nliWindowCoordinator.register({
+    service: nliService,
+    broadcastAuth: (auth) => {
+      sessions.forEach((_session, sessionUid) => {
+        rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid: sessionUid as SessionUid, auth});
+      });
+    }
+  });
 
   const updateBackgroundColor = () => {
     const cfg_ = app.plugins.getDecoratedConfig(profileName);
@@ -76,6 +152,7 @@ export function newWindow(
 
   // config changes
   const cfgUnsubscribe = app.config.subscribe(() => {
+    const wasNliEnabled = cfg.naturalLanguageInterface.enabled;
     const cfg_ = app.plugins.getDecoratedConfig(profileName);
 
     // notify renderer
@@ -90,6 +167,9 @@ export function newWindow(
     updateBackgroundColor();
 
     cfg = cfg_;
+    if (wasNliEnabled && !cfg.naturalLanguageInterface.enabled) {
+      void nliService.setEnabled(false);
+    }
   });
 
   rpc.on('init', () => {
@@ -169,7 +249,10 @@ export function newWindow(
       extraOptionsFiltered,
       {
         profile: extraOptionsFiltered.profile || profileName,
-        uid
+        uid,
+        windowUid: window.uid,
+        nliUserDataPath: app.getPath('userData'),
+        naturalLanguageInterface: profileCfg.naturalLanguageInterface
       }
     );
     const options = decorateSessionOptions(defaultOptions);
@@ -198,7 +281,13 @@ export function newWindow(
       rpc.emit('session data', data);
     });
 
+    session.on(NLI_SESSION_EVENTS.shellSemantic, (event: ShellSemanticEvent) => {
+      if (process.env.HYPER_NLI_E2E_FIXTURE) console.log('HYPER_NLI_E2E_SEMANTIC', event.sessionUid);
+      nliService.onCommandNotFound(event);
+    });
+
     session.on('exit', () => {
+      nliService.disposeSession(options.uid as SessionUid);
       rpc.emit('session exit', {uid: options.uid});
       unsetRendererType(options.uid);
       sessions.delete(options.uid);
@@ -229,6 +318,10 @@ export function newWindow(
   rpc.on('data', ({uid, data, escaped}) => {
     const session = uid && sessions.get(uid);
     if (session) {
+      // Focus and device-attribute replies are xterm protocol traffic, not a
+      // new user command. Everything else invalidates an earlier review before
+      // the PTY can synchronously surface a command-not-found event.
+      if (!isNliNeutralTerminalReply(data)) nliService.onUserInput(uid as SessionUid);
       if (escaped) {
         const escapedData = session.shell?.endsWith('cmd.exe')
           ? `"${data}"` // This is how cmd.exe does it
@@ -239,6 +332,61 @@ export function newWindow(
         session.write(data);
       }
     }
+  });
+  const isCurrentNliSender = (event: IpcMainEvent) =>
+    !window.isDestroyed() && !event.sender.isDestroyed() && event.sender === window.webContents;
+
+  rpc.onWithEvent(NLI_RPC_EVENTS.approve, (event, request) => {
+    executeApprovedCommand({
+      request,
+      identity: {windowId: window.id, rendererId: event.sender.id},
+      service: nliService,
+      getSession: (sessionUid) => sessions.get(sessionUid),
+      isRendererCurrent: () => isCurrentNliSender(event),
+      restoreTerminalFocus: (sessionUid) => {
+        rpc.emit(NLI_RPC_EVENTS.focusTerminal, {sessionUid});
+      }
+    });
+  });
+  rpc.onWithEvent(NLI_RPC_EVENTS.cancel, (event, request) => {
+    if (!isCurrentNliSender(event)) return;
+    nliService.cancel(request);
+  });
+  rpc.on(NLI_RPC_EVENTS.cancelLogin, ({sessionUid}) => {
+    void nliService
+      .cancelLogin()
+      .then(() => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth: {status: 'signed-out'}}));
+  });
+  rpc.on(NLI_RPC_EVENTS.clarify, (request) => {
+    void nliService.clarify(request);
+  });
+  rpc.onWithEvent(NLI_RPC_EVENTS.edit, (event, request) => {
+    if (!isCurrentNliSender(event)) return;
+    nliService.edit(request);
+  });
+  rpc.on(NLI_RPC_EVENTS.privacy, ({sessionUid, preferences}) => {
+    void nliService
+      .setPrivacyPreferences(preferences)
+      .then(() => nliService.login(sessionUid).then((auth) => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth})));
+  });
+  rpc.on(NLI_RPC_EVENTS.resetPrivacy, () => {
+    void nliWindowCoordinator.resetPrivacy();
+  });
+  rpc.on(NLI_RPC_EVENTS.reject, (request) => {
+    nliService.reject(request);
+  });
+  rpc.on(NLI_RPC_EVENTS.retry, (request) => {
+    nliService.retry(request);
+  });
+  rpc.on(NLI_RPC_EVENTS.login, ({sessionUid}) => {
+    rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth: {status: 'signing-in'}});
+    void nliService.login(sessionUid).then((auth) => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth}));
+  });
+  rpc.on(NLI_RPC_EVENTS.logout, () => {
+    void nliWindowCoordinator.logout();
+  });
+  rpc.on(NLI_RPC_EVENTS.status, ({sessionUid}) => {
+    void nliService.getAuthStatus().then((auth) => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth}));
   });
   rpc.on('info renderer', ({uid, type}) => {
     // Used in the "About" dialog
@@ -283,6 +431,7 @@ export function newWindow(
   });
   const deleteSessions = () => {
     sessions.forEach((session, key) => {
+      nliService.disposeSession(key as SessionUid);
       session.removeAllListeners();
       session.destroy();
       sessions.delete(key);
@@ -358,6 +507,8 @@ export function newWindow(
   // the window can be closed by the browser process itself
   window.clean = () => {
     app.config.winRecord(window);
+    unregisterNliWindow();
+    void nliService.dispose();
     rpc.destroy();
     deleteSessions();
     cfgUnsubscribe();

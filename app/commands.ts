@@ -42,6 +42,9 @@ const commands: Record<string, (focusedWindow?: BrowserWindow) => void> = {
   'plugins:update': () => {
     updatePlugins();
   },
+  'nli:setup': (focusedWindow) => {
+    focusedWindow?.rpc.emit('nli setup req');
+  },
   'window:reload': (focusedWindow) => {
     focusedWindow?.rpc.emit('reload');
   },

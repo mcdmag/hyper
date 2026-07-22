@@ -195,9 +195,15 @@ importers:
       '@types/node':
         specifier: 18.19.31
         version: 18.19.31
+      '@types/pixelmatch':
+        specifier: ^5.2.6
+        version: 5.2.6
       '@types/plist':
         specifier: 3.0.5
         version: 3.0.5
+      '@types/pngjs':
+        specifier: ^6.0.5
+        version: 6.0.5
       '@types/react':
         specifier: 18.2.79
         version: 18.2.79
@@ -297,12 +303,18 @@ importers:
       parse-url:
         specifier: 8.1.0
         version: 8.1.0
+      pixelmatch:
+        specifier: ^7.2.0
+        version: 7.2.0
       playwright:
         specifier: 1.43.1
         version: 1.43.1
       plist:
         specifier: 3.1.0
         version: 3.1.0
+      pngjs:
+        specifier: ^7.0.0
+        version: 7.0.0
       prettier:
         specifier: 3.2.5
         version: 3.2.5
@@ -915,8 +927,14 @@ packages:
   '@types/normalize-package-data@2.4.1':
     resolution: {integrity: sha512-Gj7cI7z+98M282Tqmp2K5EIsoouUEzbBJhQQzDE3jSIRk6r9gsz0oUokqIUR4u1R3dMHo0pDHM7sNOHyhulypw==}
 
+  '@types/pixelmatch@5.2.6':
+    resolution: {integrity: sha512-wC83uexE5KGuUODn6zkm9gMzTwdY5L0chiK+VrKcDfEjzxh1uadlWTvOmAbCpnM9zx/Ww3f8uKlYQVnO/TrqVg==}
+
   '@types/plist@3.0.5':
     resolution: {integrity: sha512-E6OCaRmAe4WDmWNsL/9RMqdkkzDCY1etutkflWk4c+AcjDU07Pcz1fQwTX0TQz+Pxqn9i4L1TU3UFpjnrcDgxA==}
+
+  '@types/pngjs@6.0.5':
+    resolution: {integrity: sha512-0k5eKfrA83JOZPppLtS2C7OUtyNAl2wKNxfyYl9Q5g9lPkgBl/9hNyAu6HuEH2J4XmIv2znEpkDd0SaZVxW6iQ==}
 
   '@types/prop-types@15.7.3':
     resolution: {integrity: sha512-KfRL3PuHmqQLOG+2tGpRO26Ctg+Cq1E01D2DMriKEATHgWLfeNDmq9e29Q9WIky0dQ3NPkd1mzYH8Lm936Z9qw==}
@@ -3756,6 +3774,10 @@ packages:
     resolution: {integrity: sha512-uB80kBFb/tfd68bVleG9T5GGsGPjJrLAUpR5PZIrhBnIaRTQRjqdJSsIKkOP6OAIFbj7GOrcudc5pNjZ+geV2g==}
     engines: {node: '>=6'}
 
+  pixelmatch@7.2.0:
+    resolution: {integrity: sha512-xhcb4yHu9sM/G7foGzoLtXYcC0zHEaOXXjRKhGup0fw78Nf2Tkiapv4EQyMzrbcmQPsllAI7DbFY2UT7PlI9Pg==}
+    hasBin: true
+
   pkg-conf@3.1.0:
     resolution: {integrity: sha512-m0OTbR/5VPNPqO1ph6Fqbj7Hv6QU7gR/tQW40ZqrL1rjgCU85W6C1bJn0BItuJqnR98PWzw7Z8hHeChD1WrgdQ==}
     engines: {node: '>=6'}
@@ -3785,6 +3807,10 @@ packages:
   plur@5.1.0:
     resolution: {integrity: sha512-VP/72JeXqak2KiOzjgKtQen5y3IZHn+9GOuLDafPv0eXa47xq0At93XahYBs26MsifCQ4enGKwbjBTKgb9QJXg==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
+  pngjs@7.0.0:
+    resolution: {integrity: sha512-LKWqWJRhstyYo9pGvgor/ivk2w94eSjE3RGVuzLGlr3NmD8bf7RcYGze1mNdEHRP6TRP6rMuDHk5t44hnTRyow==}
+    engines: {node: '>=14.19.0'}
 
   possible-typed-array-names@1.0.0:
     resolution: {integrity: sha512-d7Uw+eZoloe0EHDIYoe+bQ5WXnGMOpmiZFTuMWCwpjzzkL2nTjcKiAk4hh8TjnGye2TwWOk3UXucZ+3rbmBa8Q==}
@@ -5688,10 +5714,18 @@ snapshots:
 
   '@types/normalize-package-data@2.4.1': {}
 
+  '@types/pixelmatch@5.2.6':
+    dependencies:
+      '@types/node': 18.19.31
+
   '@types/plist@3.0.5':
     dependencies:
       '@types/node': 18.19.31
       xmlbuilder: 15.1.1
+
+  '@types/pngjs@6.0.5':
+    dependencies:
+      '@types/node': 18.19.31
 
   '@types/prop-types@15.7.3': {}
 
@@ -8944,6 +8978,10 @@ snapshots:
 
   pify@4.0.1: {}
 
+  pixelmatch@7.2.0:
+    dependencies:
+      pngjs: 7.0.0
+
   pkg-conf@3.1.0:
     dependencies:
       find-up: 3.0.0
@@ -8974,6 +9012,8 @@ snapshots:
   plur@5.1.0:
     dependencies:
       irregular-plurals: 3.3.0
+
+  pngjs@7.0.0: {}
 
   possible-typed-array-names@1.0.0: {}
 

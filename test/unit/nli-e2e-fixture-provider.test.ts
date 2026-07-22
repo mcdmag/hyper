@@ -58,7 +58,7 @@ test('fixture responses are deterministic by input and call count, including mal
   t.deepEqual(malformed, {version: 1, kind: 'plan', unexpected: 'invalid'});
 });
 
-test('fixture delay is abortable and only committed repository JSONL paths are accepted', async (t) => {
+test('fixture delay is abortable and only repository JSONL fixture paths are accepted', async (t) => {
   const provider = new NliE2eFixtureProvider(fixturePath);
   await provider.login();
   const controller = new AbortController();

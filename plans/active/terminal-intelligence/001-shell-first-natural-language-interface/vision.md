@@ -102,7 +102,7 @@ The feature is off by default, capability-checked, cancelable, and observable th
   - Returns an immutable supported/unsupported decision and safe augmented args; never mutates caller arrays or process.env.
 - createPowerShellIntegration(options: {sessionUid: string; nonce: string; scriptDirectory: string}): PowerShellIntegration
   - Materializes a non-secret hook and cleanup handle; preserves profiles and an existing lookup handler.
-- OscEventParser.push(chunk: string): {visible: string; events: ShellSemanticEvent[]}
+- OscEventParser.push(chunk: string): OscParseResult
   - Incrementally parses bounded private frames, preserves all non-frame bytes exactly, and never throws on PTY data.
 - interface NliProvider
   - getAuthStatus, login, cancelLogin, logout, interpret(context, signal), dispose. Implementations validate and return only NliProviderResult values.
@@ -115,8 +115,10 @@ The feature is off by default, capability-checked, cancelable, and observable th
   - Deterministic advisory classification independent of model labels.
 - Renderer actions openNliSetup, dismissNli, selectNliOption, beginNliEdit, updateNliEdit, cancelNliEdit, saveNliEdit, approveNli, rejectNli, clarifyNli, retryNli, loginNli, logoutNli, saveNliPrivacy, resetNliPrivacy.
 - NliPanel props are display state and callbacks only; command authority remains in main.
+- createNliWindowCoordinator(): NliWindowCoordinator
+  - Creates the main-process coordinator whose `register` method returns an idempotent unregister callback and whose `resetPrivacy` and `logout` methods apply shared revocation to every live window before broadcasting the resulting auth state.
 - Existing Session.write(data: string) remains the sole PTY write primitive used for both user and approved NLI bytes.
-- Session.isWritable(): boolean exposes only whether that original PTY can currently accept the approved write.
+- Session writability remains an internal boolean guard used only at the original PTY approval boundary.
 
 ### Internals
 

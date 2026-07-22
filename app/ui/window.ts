@@ -24,6 +24,7 @@ import {executeApprovedCommand} from '../nli/execution';
 import {collectNliGitMetadata} from '../nli/git-metadata';
 import {createNliPreferencesStore} from '../nli/preferences';
 import {NliService} from '../nli/service';
+import {nliWindowCoordinator} from '../nli/window-coordinator';
 import fetchNotifications from '../notifications';
 import notify from '../notify';
 import {decorateSessionOptions, decorateSessionClass} from '../plugins';
@@ -134,6 +135,14 @@ export function newWindow(
     includeGitMetadata: () => cfg.naturalLanguageInterface.includeGitMetadata,
     maxOptions: () => cfg.naturalLanguageInterface.maxOptions,
     collectGitMetadata: collectNliGitMetadata
+  });
+  const unregisterNliWindow = nliWindowCoordinator.register({
+    service: nliService,
+    broadcastAuth: (auth) => {
+      sessions.forEach((_session, sessionUid) => {
+        rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid: sessionUid as SessionUid, auth});
+      });
+    }
   });
 
   const updateBackgroundColor = () => {
@@ -360,10 +369,8 @@ export function newWindow(
       .setPrivacyPreferences(preferences)
       .then(() => nliService.login(sessionUid).then((auth) => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth})));
   });
-  rpc.on(NLI_RPC_EVENTS.resetPrivacy, ({sessionUid}) => {
-    void nliService
-      .resetPrivacyPreferences()
-      .then(() => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth: {status: 'unknown'}}));
+  rpc.on(NLI_RPC_EVENTS.resetPrivacy, () => {
+    void nliWindowCoordinator.resetPrivacy();
   });
   rpc.on(NLI_RPC_EVENTS.reject, (request) => {
     nliService.reject(request);
@@ -375,8 +382,8 @@ export function newWindow(
     rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth: {status: 'signing-in'}});
     void nliService.login(sessionUid).then((auth) => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth}));
   });
-  rpc.on(NLI_RPC_EVENTS.logout, ({sessionUid}) => {
-    void nliService.logout().then(() => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth: {status: 'signed-out'}}));
+  rpc.on(NLI_RPC_EVENTS.logout, () => {
+    void nliWindowCoordinator.logout();
   });
   rpc.on(NLI_RPC_EVENTS.status, ({sessionUid}) => {
     void nliService.getAuthStatus().then((auth) => rpc.emit(NLI_RPC_EVENTS.authState, {sessionUid, auth}));
@@ -500,6 +507,7 @@ export function newWindow(
   // the window can be closed by the browser process itself
   window.clean = () => {
     app.config.winRecord(window);
+    unregisterNliWindow();
     void nliService.dispose();
     rpc.destroy();
     deleteSessions();

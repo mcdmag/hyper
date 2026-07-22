@@ -114,9 +114,9 @@ Provider interpretation is bounded by requestTimeoutMs and cancellation; OSC par
 
 ## Rollback and local dry run
 
-The immediate kill switch is naturalLanguageInterface.enabled=false, which disposes provider children and transient hook artifacts while leaving future shell args and PTY bytes unchanged. ChatGPT credentials in the OS keyring intentionally persist until the user invokes explicit Logout; disabling, downgrading, or git-reverting cannot promise credential deletion. Documentation requires Logout before downgrade/revert when credential removal is desired and describes safe orphan-hook cleanup. Because config is additive and default-off, old installs ignore the key without a down migration.
+The immediate kill switch is naturalLanguageInterface.enabled=false, which cancels active turns, disposes provider children, and prevents integration in future sessions. An already-running PowerShell tab retains its paired parser and in-process hook until that tab closes so private frames cannot become visible PTY bytes; its disabled service performs no AI work. ChatGPT credentials in the OS keyring intentionally persist until the user invokes explicit Logout; disabling, downgrading, or git-reverting cannot promise credential deletion. Documentation requires Logout before downgrade/revert when credential removal is desired and describes safe orphan-hook cleanup. Because config is additive and default-off, old installs ignore the key without a down migration.
 
-No CI/deploy workflow changes are required. The release dry run is local and non-publishing: pnpm run build, then pnpm exec electron-builder --win dir --x64 --publish never, then run the PowerShell packaged smoke against dist/win-unpacked/Hyper.exe and verify the Codex child is hidden and terminates with Hyper.
+No CI/deploy workflow changes are required. The release dry run is local and non-publishing: pnpm run build, then pnpm exec electron-builder --win dir --x64 --publish never, then run the isolated PowerShell packaged smoke against dist/win-unpacked/Hyper.exe to verify one GUI app, no child top-level window, descendant cleanup, profile isolation, and exact temporary cleanup. Provider seam tests separately verify that the real Codex child is spawned with `windowsHide: true` and is terminated with Hyper.
 
 The feature branch and pull request must target dev explicitly. Do not target the repository's older default canary branch. After merge, fast-forward the local dev worktree.
 
@@ -138,10 +138,10 @@ Final acceptance requires evidence that:
 - One unresolved PowerShell command produces exactly one fallback after ordinary error output.
 - Existing PowerShell command lookup handlers, profiles, prompts, Unicode, and two simultaneous sessions remain correct.
 - cmd.exe and other unsupported shells are unchanged and do not heuristically trigger.
-- Sign-in, cancel, token refresh behavior, logout, offline, timeout, malformed output, incompatible protocol, and app-server crash are handled.
+- Sign-in, cancel, logout, offline, timeout, malformed output, incompatible protocol, and app-server crash are handled; in-use token refresh stays delegated to Codex without token transport through Hyper.
 - No tokens, scrollback, history, environment, file content, or command plans leak to logs, Redux beyond display data, electron-store, crash payloads, or spawned terminal environments.
 - Selecting, editing, rejecting, approving, stale invalidation, high-risk confirmation, and the single-write-attempt contract work by keyboard and screen reader.
-- The packaged Windows app spawns Codex with no console window and cleans it up on exit.
+- The packaged Windows app remains one GUI application with no child top-level window or surviving descendant; provider seam tests require real Codex spawns to use `windowsHide: true` and cleanup on exit.
 
 ## Verification
 

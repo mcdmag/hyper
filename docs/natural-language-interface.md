@@ -119,7 +119,7 @@ Credentials are owned by Codex and must remain in the operating-system keyring. 
 
 - **Unsupported shell:** start a new interactive PowerShell 5.1 or 7 tab. Hyper intentionally cannot infer natural language from `cmd.exe` or WSL output.
 - **Codex missing:** run `codex --version` from PowerShell or set an absolute `codexExecutable` path.
-- **Codex incompatible:** install a compatible Codex CLI. Version 0.144.6 is the minimum, but the required app-server methods and locked-down config must also pass startup checks.
+- **Codex incompatible:** install a compatible Codex CLI. Version 0.144.6 is the minimum. Startup checks initialization and locked-down config; account and thread/turn methods are checked lazily when first used.
 - **Keyring unavailable:** restore the operating-system credential store. Hyper will not save credentials to a file.
 - **Private storage unavailable:** check write permissions for Hyper's user-data directory. No login or command is queued.
 - **Offline, rate-limited, or timed out:** the original terminal failure has already completed and remains visible. Retry explicitly; nothing is queued.

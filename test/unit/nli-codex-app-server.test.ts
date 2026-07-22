@@ -339,7 +339,8 @@ test('browser OAuth accepts only HTTPS, completes ChatGPT login, cancels, and lo
           );
         }
       },
-      'account/read': (message, child) =>
+      'account/read': (message, child) => {
+        t.deepEqual(message.params, {refreshToken: false});
         child.pushMessage(
           response(
             message,
@@ -347,7 +348,8 @@ test('browser OAuth accepts only HTTPS, completes ChatGPT login, cancels, and lo
               ? {account: {type: 'chatgpt', email: 'user@example.test'}, requiresOpenaiAuth: true}
               : {account: null, requiresOpenaiAuth: true}
           )
-        ),
+        );
+      },
       'account/login/cancel': (message, child) => {
         child.pushMessage(response(message, {}));
         child.pushMessage({method: 'account/login/completed', params: {loginId: 'login-2', success: false}});

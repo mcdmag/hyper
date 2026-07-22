@@ -1,5 +1,8 @@
 // Native
 import {execFileSync} from 'child_process';
+import {createServer} from 'http';
+import type {Server} from 'http';
+import type {AddressInfo} from 'net';
 import os from 'os';
 import path from 'path';
 
@@ -8,23 +11,56 @@ import test from 'ava';
 import fs from 'fs-extra';
 import {_electron} from 'playwright';
 import type {ElectronApplication} from 'playwright';
+import {PNG} from 'pngjs';
 
 import type {configOptions} from '../typings/config';
 import type {HyperState} from '../typings/hyper';
 import type {AttemptId, NliDisplayState, SessionUid} from '../typings/nli';
 
 let app: ElectronApplication;
+let linkFixtureServer: Server | undefined;
+let linkFixtureURL = '';
 let isolatedRoot = '';
 let markerPath = '';
 const runtimeDiagnostics: string[] = [];
 
+const withTimeout = async <Value>(promise: Promise<Value>, label: string, timeoutMs = 5_000) => {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`Timed out during packaged E2E ${label}`)), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+};
+
 const waitUntil = async (predicate: () => Promise<boolean>, timeoutMs = 15_000) => {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    if (await predicate()) return;
+    if (await withTimeout(predicate(), 'condition probe')) return;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error('Timed out waiting for packaged E2E condition');
+};
+
+const hasPixelVariation = (image: Buffer) => {
+  const png = PNG.sync.read(image);
+  const first = png.data.subarray(0, 4);
+  for (let offset = 4; offset < png.data.length; offset += 4) {
+    if (
+      png.data[offset] !== first[0] ||
+      png.data[offset + 1] !== first[1] ||
+      png.data[offset + 2] !== first[2] ||
+      png.data[offset + 3] !== first[3]
+    ) {
+      return true;
+    }
+  }
+  return false;
 };
 
 interface RendererTestWindow extends Window {
@@ -94,18 +130,23 @@ test.before(async () => {
   const userProfile = path.join(isolatedRoot, 'profile');
   const temp = path.join(isolatedRoot, 'temp');
   const chromiumUserData = path.join(isolatedRoot, 'chromium-user-data');
-  const hyperConfigDirectory = chromiumUserData;
+  const xdgConfigHome = path.join(isolatedRoot, 'xdg-config');
+  const hyperConfigDirectory = path.join(xdgConfigHome, 'Hyper');
   await Promise.all([
     fs.ensureDir(localAppData),
     fs.ensureDir(userProfile),
     fs.ensureDir(temp),
-    fs.ensureDir(chromiumUserData)
+    fs.ensureDir(chromiumUserData),
+    fs.ensureDir(hyperConfigDirectory)
   ]);
   await fs.writeJson(path.join(hyperConfigDirectory, 'hyper.json'), {
     config: {
       shell: pwsh,
       shellArgs: ['-NoLogo', '-NoProfile'],
+      useConpty: true,
+      useConptyDll: false,
       disableAutoUpdates: true,
+      webLinksOpenMode: 'internal',
       naturalLanguageInterface: {
         enabled: true,
         codexExecutable: 'codex',
@@ -121,9 +162,23 @@ test.before(async () => {
     keymaps: {}
   });
 
+  linkFixtureServer = createServer((_request, response) => {
+    response.writeHead(200, {'content-type': 'text/html; charset=utf-8'});
+    response.end(
+      '<!doctype html><html><head><title>Hyper internal link fixture</title></head><body style="background:#123;color:#fff">Internal popup fixture</body></html>'
+    );
+  });
+  await new Promise<void>((resolveListen, rejectListen) => {
+    linkFixtureServer!.once('error', rejectListen);
+    linkFixtureServer!.listen(0, '127.0.0.1', resolveListen);
+  });
+  const fixtureAddress = linkFixtureServer.address() as AddressInfo;
+  linkFixtureURL = `http://127.0.0.1:${fixtureAddress.port}/internal-popup`;
+
   app = await _electron.launch({
     executablePath: pathToBinary,
     args: [`--user-data-dir=${chromiumUserData}`],
+    timeout: 30_000,
     env: {
       ...process.env,
       APPDATA: appData,
@@ -131,6 +186,7 @@ test.before(async () => {
       USERPROFILE: userProfile,
       TEMP: temp,
       TMP: temp,
+      XDG_CONFIG_HOME: xdgConfigHome,
       HYPER_NLI_E2E_FIXTURE: path.join(__dirname, 'fixtures', 'nli', 'fake-provider-e2e.jsonl'),
       HYPER_NLI_E2E_MARKER: markerPath,
       HYPER_SKIP_DEV_EXTENSIONS: '1'
@@ -139,12 +195,15 @@ test.before(async () => {
   app.process().stdout?.on('data', (data) => runtimeDiagnostics.push(`stdout: ${String(data)}`));
   app.process().stderr?.on('data', (data) => runtimeDiagnostics.push(`stderr: ${String(data)}`));
   app.on('close', () => runtimeDiagnostics.push('electron-application: close'));
-  const firstWindow = await app.firstWindow();
+  const firstWindow = await app.firstWindow({timeout: 30_000});
   firstWindow.on('close', () => runtimeDiagnostics.push('renderer: close'));
   firstWindow.on('crash', () => runtimeDiagnostics.push('renderer: crash'));
   firstWindow.on('pageerror', (error) => runtimeDiagnostics.push(`renderer pageerror: ${String(error)}`));
+  await firstWindow.waitForLoadState('domcontentloaded', {timeout: 30_000});
   await waitUntil(() =>
-    firstWindow.evaluate(() => Boolean((window as unknown as RendererTestWindow).store.getState().sessions.activeUid))
+    app.evaluate(({BrowserWindow}) =>
+      BrowserWindow.getAllWindows().some((candidate) => Boolean(candidate.rpc) && candidate.sessions.size > 0)
+    )
   );
   await firstWindow.evaluate(() => {
     const renderer = window as unknown as RendererTestWindow;
@@ -170,22 +229,47 @@ test.before(async () => {
 });
 
 test.after.always(async () => {
+  let cleanupError: unknown;
   try {
-    const image = await app
-      .evaluate(({BrowserWindow}) =>
+    const image = await withTimeout(
+      app.evaluate(({BrowserWindow}) =>
         BrowserWindow.getFocusedWindow()
           ?.capturePage()
           .then((captured) => captured.toPNG().toString('base64'))
-      )
-      .catch(() => undefined);
+      ),
+      'diagnostic capture'
+    ).catch(() => undefined);
     if (image) await fs.writeFile(`dist/tmp/${process.platform}_test.png`, Buffer.from(image, 'base64'));
   } finally {
-    await app?.evaluate(({app: electronApp}) => electronApp.exit(0)).catch(() => undefined);
-    await app?.close().catch(() => undefined);
+    if (app) {
+      const launchedProcess = app.process();
+      await withTimeout(
+        app.evaluate(({app: electronApp}) => electronApp.exit(0)),
+        'application exit'
+      ).catch(() => undefined);
+      await withTimeout(app.close(), 'Playwright close').catch(() => undefined);
+      if (launchedProcess.exitCode === null) launchedProcess.kill();
+    }
+    await new Promise<void>((resolveClose) => {
+      if (!linkFixtureServer) return resolveClose();
+      linkFixtureServer.close(() => resolveClose());
+    });
     if (isolatedRoot && path.basename(isolatedRoot).startsWith('hyper-nli-e2e-')) {
-      await fs.remove(isolatedRoot);
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        try {
+          await fs.remove(isolatedRoot);
+          break;
+        } catch (error) {
+          if (attempt === 9) {
+            cleanupError = error;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+      }
     }
   }
+  if (cleanupError) throw cleanupError;
 });
 
 test.serial('see if dev tools are open', async (t) => {
@@ -459,4 +543,101 @@ test.serial('fake provider alternatives remain bounded, selectable, and safe at 
   });
   t.true(panelBox.width <= 321, JSON.stringify({panelBox, responsiveLayout}));
   await page.keyboard.press('Escape');
+});
+
+test.serial('internal link popup close preserves the owner and leaves no child windows', async (t) => {
+  const page = await app.firstWindow();
+  const baseline = await app.evaluate(({BrowserWindow}) => {
+    const owner = BrowserWindow.getAllWindows().find((candidate) => Boolean(candidate.rpc));
+    if (!owner) throw new Error('Hyper owner window was not found');
+    return {
+      id: owner.id,
+      url: owner.webContents.getURL(),
+      rendererProcessId: owner.webContents.getOSProcessId(),
+      sessionIds: [...owner.sessions.keys()].sort(),
+      windowCount: BrowserWindow.getAllWindows().length
+    };
+  });
+
+  for (const route of ['window-open', 'typed-rpc'] as const) {
+    if (route === 'window-open') {
+      await page.evaluate((url) => window.open(url, 'hyper-internal-link-e2e'), linkFixtureURL);
+    } else {
+      await page.evaluate((url) => window.rpc.emit('open link', {url}), linkFixtureURL);
+    }
+
+    await waitUntil(() =>
+      app.evaluate(
+        ({BrowserWindow}, expected) =>
+          BrowserWindow.getAllWindows().length === expected.count + 1 &&
+          BrowserWindow.getAllWindows().some(
+            (candidate) => candidate.id !== expected.ownerId && candidate.webContents.getURL() === expected.url
+          ),
+        {count: baseline.windowCount, ownerId: baseline.id, url: linkFixtureURL}
+      )
+    );
+
+    const childSecurity = await app.evaluate(async ({BrowserWindow}, ownerId) => {
+      const child = BrowserWindow.getAllWindows().find((candidate) => candidate.id !== ownerId);
+      if (!child) throw new Error('Internal link child was not found');
+      const rendererGlobals = await child.webContents.executeJavaScript(
+        '({requireType: typeof require, processType: typeof process})'
+      );
+      return {
+        parentId: child.getParentWindow()?.id,
+        rendererGlobals
+      };
+    }, baseline.id);
+    t.deepEqual(childSecurity, {
+      parentId: baseline.id,
+      rendererGlobals: {requireType: 'undefined', processType: 'undefined'}
+    });
+
+    await app.evaluate(({BrowserWindow}, ownerId) => {
+      const owner = BrowserWindow.fromId(ownerId);
+      const child = BrowserWindow.getAllWindows().find((candidate) => candidate.id !== ownerId);
+      if (!owner || !child) throw new Error('Popup close seam lost its owner or child');
+      owner.minimize();
+      owner.hide();
+      child.close();
+    }, baseline.id);
+
+    await waitUntil(() =>
+      app.evaluate(
+        ({BrowserWindow}, expected) => {
+          const owner = BrowserWindow.fromId(expected.ownerId);
+          return (
+            BrowserWindow.getAllWindows().length === expected.count &&
+            Boolean(owner?.isVisible()) &&
+            Boolean(owner?.isFocused()) &&
+            Boolean(owner?.webContents.isFocused())
+          );
+        },
+        {count: baseline.windowCount, ownerId: baseline.id}
+      )
+    );
+
+    const afterClose = await app.evaluate(async ({BrowserWindow}, ownerId) => {
+      const owner = BrowserWindow.fromId(ownerId);
+      if (!owner) throw new Error('Hyper owner was destroyed after popup close');
+      return {
+        url: owner.webContents.getURL(),
+        rendererProcessId: owner.webContents.getOSProcessId(),
+        sessionIds: [...owner.sessions.keys()].sort(),
+        visible: owner.isVisible(),
+        focused: owner.isFocused(),
+        webContentsFocused: owner.webContents.isFocused(),
+        frame: (await owner.capturePage()).toPNG().toString('base64')
+      };
+    }, baseline.id);
+    t.is(afterClose.url, baseline.url);
+    t.is(afterClose.rendererProcessId, baseline.rendererProcessId);
+    t.deepEqual(afterClose.sessionIds, baseline.sessionIds);
+    t.true(afterClose.visible);
+    t.true(afterClose.focused);
+    t.true(afterClose.webContentsFocused);
+    const frame = Buffer.from(afterClose.frame, 'base64');
+    t.true(frame.length > 100);
+    t.true(hasPixelVariation(frame));
+  }
 });

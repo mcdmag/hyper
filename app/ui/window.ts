@@ -31,6 +31,7 @@ import {decorateSessionOptions, decorateSessionClass} from '../plugins';
 import createRPC from '../rpc';
 import Session from '../session';
 import updater from '../updater';
+import {LinkOpeningController} from '../utils/link-opening';
 import {setRendererType, unsetRendererType} from '../utils/renderer-utils';
 import toElectronBackgroundColor from '../utils/to-electron-background-color';
 
@@ -90,6 +91,17 @@ export function newWindow(
   window.uid = classOpts.uid;
 
   const rpc = createRPC(window);
+  const linkOpening = new LinkOpeningController({
+    owner: window,
+    getMode: () => app.plugins.getDecoratedConfig(profileName).webLinksOpenMode,
+    createWindow: (options) => new BrowserWindow(options),
+    openExternal: (url) => shell.openExternal(url),
+    reportOpenFailure: (message) => console.error(message),
+    notifyOpenFailure: (message) => notify('Unable to open link', message)
+  });
+  window.webContents.on('did-create-window', (child, details) => {
+    linkOpening.handleCreatedWindow(child, details);
+  });
   const sessions = new Map<string, Session>();
   const nliService = new NliService({
     windowUid: window.uid,
@@ -395,6 +407,9 @@ export function newWindow(
   rpc.on('open external', ({url}) => {
     void shell.openExternal(url);
   });
+  rpc.on('open link', ({url}) => {
+    linkOpening.openLink(url);
+  });
   rpc.on('open context menu', (selection) => {
     const {createWindow} = app;
     Menu.buildFromTemplate(contextMenuTemplate(createWindow, selection)).popup({window});
@@ -447,12 +462,16 @@ export function newWindow(
   });
 
   const handleDroppedURL = (url: string) => {
-    const protocol = typeof url === 'string' && new URL(url).protocol;
-    if (protocol === 'file:') {
-      const path = fileURLToPath(url);
-      return {uid: null, data: path, escaped: true};
-    } else if (protocol === 'http:' || protocol === 'https:') {
-      return {uid: null, data: url};
+    try {
+      const protocol = typeof url === 'string' && new URL(url).protocol;
+      if (protocol === 'file:') {
+        const path = fileURLToPath(url);
+        return {uid: null, data: path, escaped: true};
+      } else if (protocol === 'http:' || protocol === 'https:') {
+        return {uid: null, data: url};
+      }
+    } catch (_error) {
+      return undefined;
     }
   };
 
@@ -465,14 +484,7 @@ export function newWindow(
       rpc.emit('session data send', data);
     }
   });
-  window.webContents.setWindowOpenHandler(({url}) => {
-    const data = handleDroppedURL(url);
-    if (data) {
-      rpc.emit('session data send', data);
-      return {action: 'deny'};
-    }
-    return {action: 'allow'};
-  });
+  window.webContents.setWindowOpenHandler((details) => linkOpening.handleWindowOpen(details));
 
   // expose internals to extension authors
   window.rpc = rpc;

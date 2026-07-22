@@ -52,6 +52,7 @@ export type MainEvents = {
   new: sessionExtraOptions;
   'open context menu': string;
   'open external': {url: string};
+  'open link': {url: string};
   'open hamburger menu': {x: number; y: number};
   'quit and install': never;
   resize: {uid: string; cols: number; rows: number};

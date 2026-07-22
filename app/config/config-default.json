@@ -57,6 +57,7 @@
     "macOptionSelectionMode": "vertical",
     "webGLRenderer": false,
     "webLinksActivationKey": "",
+    "webLinksOpenMode": "system",
     "disableLigatures": true,
     "disableAutoUpdates": false,
     "autoUpdatePlugins": true,

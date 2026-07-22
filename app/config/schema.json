@@ -292,6 +292,14 @@
                     ],
                     "type": "string"
                 },
+                "webLinksOpenMode": {
+                    "description": "Open web links in the operating system browser by default, or opt in to a hardened Hyper popup.",
+                    "enum": [
+                        "internal",
+                        "system"
+                    ],
+                    "type": "string"
+                },
                 "windowSize": {
                     "description": "Initial window size in pixels",
                     "items": [
@@ -667,6 +675,14 @@
                             ],
                             "type": "string"
                         },
+                        "webLinksOpenMode": {
+                            "description": "Open web links in the operating system browser by default, or opt in to a hardened Hyper popup.",
+                            "enum": [
+                                "internal",
+                                "system"
+                            ],
+                            "type": "string"
+                        },
                         "windowSize": {
                             "description": "Initial window size in pixels",
                             "items": [
@@ -723,6 +739,7 @@
                         "termCSS",
                         "webGLRenderer",
                         "webLinksActivationKey",
+                        "webLinksOpenMode",
                         "workingDirectory"
                     ],
                     "type": "object"

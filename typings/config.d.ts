@@ -207,6 +207,8 @@ type profileConfigOptions = {
    * keypress required for weblink activation: [ctrl | alt | meta | shift]
    */
   webLinksActivationKey: 'ctrl' | 'alt' | 'meta' | 'shift' | '';
+  /** Open web links in the operating system browser by default, or opt in to a hardened Hyper popup. */
+  webLinksOpenMode: 'system' | 'internal';
   /** Initial window size in pixels */
   windowSize?: [number, number];
   /** set custom startup directory (must be an absolute path) */

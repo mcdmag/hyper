@@ -62,6 +62,21 @@ const isolatedFeatures = {
   nextCursor: null
 };
 
+const modernIsolatedConfig = {
+  config: {
+    ...isolatedConfig.config,
+    cli_auth_credentials_store: 'keyring',
+    features: Object.fromEntries(requiredFeatures.map((name) => [name, false]))
+  },
+  layers: isolatedConfig.layers,
+  origins: {
+    cli_auth_credentials_store: {
+      name: 'Hyper NLI private config',
+      version: '0.145.0'
+    }
+  }
+};
+
 const makeChild = (handler: RequestHandler): ScriptedChild => {
   const child = new EventEmitter() as ScriptedChild;
   const stdin = new PassThrough();
@@ -273,6 +288,237 @@ test('starts hidden with strict config, an empty cwd, and a newly allowlisted en
   }
 });
 
+test('negotiates modern effective capabilities without depending on version branding or provenance layout', async (t) => {
+  for (const initialized of [{userAgent: 'codex-cli/development-build'}, {}]) {
+    const harness = makeHarness(
+      standardHandler({
+        initialize: (message, child) => child.pushMessage(response(message, initialized)),
+        'config/read': (message, child) => child.pushMessage(response(message, modernIsolatedConfig)),
+        'experimentalFeature/list': () => t.fail('modern effective config must not use the legacy list')
+      })
+    );
+    try {
+      t.deepEqual(await harness.provider.getAuthStatus(), {status: 'signed-out'});
+      const methods = harness.factory.children[0].received.map((message) => message.method);
+      t.true(methods.includes('config/read'));
+      t.true(methods.includes('account/read'));
+      t.false(methods.includes('experimentalFeature/list'));
+    } finally {
+      await harness.cleanup();
+    }
+  }
+});
+
+test('modern capability negotiation reaches the existing browser login flow', async (t) => {
+  const harness = makeHarness(
+    standardHandler({
+      initialize: (message, child) =>
+        child.pushMessage(response(message, {userAgent: 'hyper-nli-probe/0.145.0 (windows)'})),
+      'config/read': (message, child) => child.pushMessage(response(message, modernIsolatedConfig)),
+      'experimentalFeature/list': () => t.fail('modern effective config must not use the legacy list'),
+      'account/login/start': (message, child) => {
+        child.pushMessage(
+          response(message, {
+            type: 'chatgpt',
+            authUrl: 'https://auth.openai.com/start',
+            loginId: 'modern-login'
+          })
+        );
+        queueMicrotask(() =>
+          child.pushMessage({
+            method: 'account/login/completed',
+            params: {loginId: 'modern-login', success: true}
+          })
+        );
+      },
+      'account/read': (message, child) =>
+        child.pushMessage(
+          response(message, {
+            account: {type: 'chatgpt', email: 'modern@example.test'},
+            requiresOpenaiAuth: true
+          })
+        )
+    })
+  );
+  try {
+    t.deepEqual(await harness.provider.login(), {
+      status: 'signed-in',
+      accountLabel: 'modern@example.test'
+    });
+    t.deepEqual(harness.opened, ['https://auth.openai.com/start']);
+    const methods = harness.factory.children[0].received.map((message) => message.method);
+    t.true(methods.includes('account/login/start'));
+    t.false(methods.includes('experimentalFeature/list'));
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('browser login accepts the generated completion schema when optional loginId is omitted', async (t) => {
+  const harness = makeHarness(
+    standardHandler({
+      'account/login/start': (message, child) => {
+        child.pushMessage(
+          response(message, {
+            type: 'chatgpt',
+            authUrl: 'https://auth.openai.com/start',
+            loginId: 'schema-login'
+          })
+        );
+        queueMicrotask(() =>
+          child.pushMessage({
+            method: 'account/login/completed',
+            params: {success: true}
+          })
+        );
+      },
+      'account/read': (message, child) =>
+        child.pushMessage(
+          response(message, {
+            account: {type: 'chatgpt', email: 'schema@example.test'},
+            requiresOpenaiAuth: true
+          })
+        )
+    })
+  );
+  try {
+    t.deepEqual(await harness.provider.login(), {
+      status: 'signed-in',
+      accountLabel: 'schema@example.test'
+    });
+    t.deepEqual(harness.opened, ['https://auth.openai.com/start']);
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('browser login recovers from a missed completion notification using authoritative account state', async (t) => {
+  const harness = makeHarness(
+    standardHandler({
+      'account/login/start': (message, child) =>
+        child.pushMessage(
+          response(message, {
+            type: 'chatgpt',
+            authUrl: 'https://auth.openai.com/start',
+            loginId: 'missed-notification'
+          })
+        ),
+      'account/read': (message, child) =>
+        child.pushMessage(
+          response(message, {
+            account: {type: 'chatgpt', email: 'recovered@example.test'},
+            requiresOpenaiAuth: true
+          })
+        )
+    }),
+    25
+  );
+  try {
+    t.deepEqual(await harness.provider.login(), {
+      status: 'signed-in',
+      accountLabel: 'recovered@example.test'
+    });
+    const methods = harness.factory.children[0].received.map((message) => message.method);
+    t.false(methods.includes('account/login/cancel'));
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('effective capability values take precedence while targeted legacy fallbacks remain fail closed', async (t) => {
+  const effectiveWins = makeHarness(
+    standardHandler({
+      'config/read': (message, child) =>
+        child.pushMessage(
+          response(message, {
+            ...modernIsolatedConfig,
+            layers: [{config: {cli_auth_credentials_store: 'file'}}]
+          })
+        )
+    })
+  );
+  try {
+    t.deepEqual(await effectiveWins.provider.getAuthStatus(), {status: 'signed-out'});
+  } finally {
+    await effectiveWins.cleanup();
+  }
+
+  const cases: {name: string; config: unknown; features?: unknown}[] = [
+    {
+      name: 'unsafe effective credential store does not fall back',
+      config: {
+        ...modernIsolatedConfig,
+        config: {...modernIsolatedConfig.config, cli_auth_credentials_store: 'file'}
+      }
+    },
+    {
+      name: 'wrong-typed effective credential store does not fall back',
+      config: {
+        ...modernIsolatedConfig,
+        config: {...modernIsolatedConfig.config, cli_auth_credentials_store: {kind: 'keyring'}}
+      }
+    },
+    {
+      name: 'enabled effective feature does not fall back',
+      config: {
+        ...modernIsolatedConfig,
+        config: {
+          ...modernIsolatedConfig.config,
+          features: {...modernIsolatedConfig.config.features, shell_tool: true}
+        }
+      }
+    },
+    {
+      name: 'wrong-typed effective feature map does not fall back',
+      config: {
+        ...modernIsolatedConfig,
+        config: {...modernIsolatedConfig.config, features: requiredFeatures}
+      }
+    },
+    {
+      name: 'missing feature requires explicit legacy proof',
+      config: {
+        ...modernIsolatedConfig,
+        config: {
+          ...modernIsolatedConfig.config,
+          features: Object.fromEntries(
+            requiredFeatures.filter((name) => name !== 'shell_tool').map((name) => [name, false])
+          )
+        }
+      },
+      features: {data: requiredFeatures.filter((name) => name !== 'shell_tool').map((name) => ({name, enabled: false}))}
+    },
+    {
+      name: 'conflicting duplicate legacy feature entries are rejected',
+      config: {
+        ...modernIsolatedConfig,
+        config: {...modernIsolatedConfig.config, features: {}}
+      },
+      features: {
+        data: [...isolatedFeatures.data, {name: 'shell_tool', enabled: true, defaultEnabled: false, stage: 'stable'}]
+      }
+    }
+  ];
+  for (const fixture of cases) {
+    const harness = makeHarness(
+      standardHandler({
+        'config/read': (message, child) => child.pushMessage(response(message, fixture.config)),
+        ...(fixture.features
+          ? {
+              'experimentalFeature/list': (message: Message, child: ScriptedChild) =>
+                child.pushMessage(response(message, fixture.features))
+            }
+          : {})
+      })
+    );
+    try {
+      t.is(await errorCode(harness.provider.getAuthStatus()), 'NLI_CODEX_INCOMPATIBLE', fixture.name);
+    } finally {
+      await harness.cleanup();
+    }
+  }
+});
+
 test('environment construction rejects tokens, project variables, and terminal profile values', (t) => {
   const environment = createCodexChildEnvironment(
     {
@@ -421,7 +667,7 @@ test('uses ephemeral tool-free turns with outputSchema and returns fragmented st
                 turn: {
                   id: 'turn-1',
                   status: 'completed',
-                  items: [{id: 'message-1', type: 'agentMessage', text: JSON.stringify(plan)}]
+                  items: [{id: 'message-1', type: 'agentMessage', text: JSON.stringify({result: plan})}]
                 }
               }
             },
@@ -439,7 +685,7 @@ test('uses ephemeral tool-free turns with outputSchema and returns fragmented st
       unknown
     >;
     t.is(thread.approvalPolicy, 'never');
-    t.is(thread.sandbox, 'readOnly');
+    t.is(thread.sandbox, 'read-only');
     t.deepEqual(thread.dynamicTools, []);
     t.deepEqual(thread.environments, []);
     t.deepEqual(thread.runtimeWorkspaceRoots, []);
@@ -448,8 +694,95 @@ test('uses ephemeral tool-free turns with outputSchema and returns fragmented st
     t.deepEqual(turn.environments, []);
     t.deepEqual(turn.runtimeWorkspaceRoots, []);
     t.truthy(turn.outputSchema);
+    const outputSchema = turn.outputSchema as Record<string, unknown>;
+    t.is(outputSchema.type, 'object');
+    t.false('oneOf' in outputSchema);
+    t.deepEqual(outputSchema.required, ['result']);
     t.deepEqual(JSON.parse((turn.input as {text: string}[])[0].text), context);
     t.false(JSON.stringify(turn).includes(process.cwd()));
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('reads current Codex output from the correlated final item when the turn snapshot omits items', async (t) => {
+  const plan = {
+    version: 1,
+    kind: 'plan',
+    planId: 'ip-plan',
+    summary: 'Show the local IP address.',
+    options: [
+      {
+        optionId: 'local-ip',
+        label: 'Local IPv4',
+        rationale: 'Lists preferred local IPv4 addresses.',
+        assumptions: ['The local network address is wanted.'],
+        purpose: 'Display local IPv4 addresses.',
+        shellText: 'Get-NetIPAddress -AddressFamily IPv4'
+      }
+    ]
+  };
+  const harness = makeHarness(
+    standardHandler({
+      'thread/start': (message, child) => child.pushMessage(response(message, {thread: {id: 'thread-current'}})),
+      'turn/start': (message, child) => {
+        child.pushMessage(response(message, {turn: {id: 'turn-current'}}));
+        queueMicrotask(() => {
+          child.pushMessage({
+            method: 'item/completed',
+            params: {
+              threadId: 'thread-other',
+              turnId: 'turn-other',
+              completedAtMs: 1,
+              item: {
+                id: 'message-other',
+                type: 'agentMessage',
+                text: JSON.stringify({result: plan}),
+                phase: 'final_answer'
+              }
+            }
+          });
+          child.pushMessage({
+            method: 'item/completed',
+            params: {
+              threadId: 'thread-current',
+              turnId: 'turn-current',
+              completedAtMs: 1,
+              item: {
+                id: 'message-commentary',
+                type: 'agentMessage',
+                text: JSON.stringify({result: plan}),
+                phase: 'commentary'
+              }
+            }
+          });
+          child.pushMessage({
+            method: 'item/completed',
+            params: {
+              threadId: 'thread-current',
+              turnId: 'turn-current',
+              completedAtMs: 1,
+              item: {
+                id: 'message-current',
+                type: 'agentMessage',
+                text: JSON.stringify({result: plan}),
+                phase: 'final_answer'
+              }
+            }
+          });
+          child.pushMessage({
+            method: 'turn/completed',
+            params: {
+              threadId: 'thread-current',
+              turn: {id: 'turn-current', status: 'completed', items: []}
+            }
+          });
+        });
+      }
+    })
+  );
+  try {
+    t.deepEqual(await harness.provider.interpret(context, new AbortController().signal), plan);
   } finally {
     await harness.cleanup();
   }
@@ -581,10 +914,10 @@ test('malformed and oversized JSONL fail closed, while crashes restart on the ne
 test('maps missing, incompatible, keyring, auth, rate-limit, and userData failures to safe codes', async (t) => {
   const cases: {name: string; handler: RequestHandler; expected: string}[] = [
     {
-      name: 'old version',
+      name: 'malformed initialize response',
       expected: 'NLI_CODEX_INCOMPATIBLE',
       handler: standardHandler({
-        initialize: (message, child) => child.pushMessage(response(message, {userAgent: 'codex-cli/0.144.5'}))
+        initialize: (message, child) => child.pushMessage(response(message, null))
       })
     },
     {
@@ -787,13 +1120,13 @@ test('protocol fixture and source contain no token transport, logging, auth.json
   const fixture = JSON.parse(
     readFileSync(join(__dirname, '..', 'fixtures', 'nli', 'codex-app-server-0.144.6-v2-subset.json'), 'utf8')
   ) as {
-    minimumVersion: string;
+    compatibilityBaseline: string;
     sourceCommand: string;
     sourceSchemas: string[];
     clientRequests: string[];
     generatedSchemaSubset: Record<string, {paramsRequired?: string[]; outputSchema?: boolean}>;
   };
-  t.is(fixture.minimumVersion, '0.144.6');
+  t.is(fixture.compatibilityBaseline, '0.144.6');
   t.is(fixture.sourceCommand, 'codex app-server generate-json-schema --experimental');
   t.true(fixture.sourceSchemas.includes('v2/TurnCompletedNotification.json'));
   t.deepEqual(fixture.generatedSchemaSubset['turn/completed'].paramsRequired, ['threadId', 'turn']);

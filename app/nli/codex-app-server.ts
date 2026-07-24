@@ -232,18 +232,22 @@ export class CodexAppServerProvider implements NliProvider {
     this.loginId = response.loginId;
     const completion = this.waitForNotification(
       'account/login/completed',
-      (params) => isObject(params) && (params.loginId === response.loginId || params.loginId === null),
+      (params) =>
+        isObject(params) &&
+        typeof params.success === 'boolean' &&
+        (params.loginId === undefined || params.loginId === null || params.loginId === response.loginId),
       signal
     );
     try {
       await this.options.openExternal(authUrl.toString());
-      const params = await completion;
-      if (!isObject(params) || params.success !== true) {
-        return {status: 'signed-out'};
-      }
+      await completion;
       return this.getAuthStatus(signal);
     } catch (error) {
       void completion.catch(() => undefined);
+      if (error instanceof NliProviderError && error.code === 'NLI_TIMEOUT' && !signal?.aborted) {
+        const recovered = await this.getAuthStatus(signal).catch(() => null);
+        if (recovered?.status === 'signed-in') return recovered;
+      }
       if (this.loginId && this.child) {
         await this.request('account/login/cancel', {loginId: this.loginId}).catch(() => undefined);
       }

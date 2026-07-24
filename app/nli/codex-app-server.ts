@@ -13,7 +13,6 @@ import type {
 
 import {NLI_PROVIDER_OUTPUT_SCHEMA, validateCommandPlan} from './command-plan';
 
-const MINIMUM_CODEX_VERSION = [0, 144, 6] as const;
 const MAX_JSONL_BYTES = 1024 * 1024;
 const REQUIRED_FEATURES = Object.freeze([
   'shell_tool',
@@ -133,31 +132,6 @@ const readString = (value: unknown, key: string): string | undefined => {
   if (!isObject(value)) return undefined;
   const candidate = value[key];
   return typeof candidate === 'string' ? candidate : undefined;
-};
-
-const collectValues = (value: unknown, key: string, values: unknown[] = []): unknown[] => {
-  if (Array.isArray(value)) {
-    value.forEach((entry) => collectValues(entry, key, values));
-  } else if (isObject(value)) {
-    if (Object.prototype.hasOwnProperty.call(value, key)) values.push(value[key]);
-    Object.values(value).forEach((entry) => collectValues(entry, key, values));
-  }
-  return values;
-};
-
-const parseVersion = (userAgent: string): readonly number[] | undefined => {
-  const match = /\/(\d+)\.(\d+)\.(\d+)(?:\s|$)/.exec(userAgent);
-  return match ? [Number(match[1]), Number(match[2]), Number(match[3])] : undefined;
-};
-
-const supportsMinimumVersion = (userAgent: string): boolean => {
-  const version = parseVersion(userAgent);
-  if (!version) return false;
-  for (let index = 0; index < MINIMUM_CODEX_VERSION.length; index++) {
-    if (version[index] > MINIMUM_CODEX_VERSION[index]) return true;
-    if (version[index] < MINIMUM_CODEX_VERSION[index]) return false;
-  }
-  return true;
 };
 
 const classifyProviderFailure = (value: unknown, fallback: NliErrorCode = 'NLI_PROVIDER_FAILED'): NliProviderError => {
@@ -457,14 +431,17 @@ export class CodexAppServerProvider implements NliProvider {
         },
         capabilities: {experimentalApi: true}
       });
-      const userAgent = readString(initialized, 'userAgent');
-      if (!userAgent || !supportsMinimumVersion(userAgent)) throw providerError('NLI_CODEX_INCOMPATIBLE');
+      if (!isObject(initialized)) throw providerError('NLI_CODEX_INCOMPATIBLE');
       this.notify('initialized', {});
-      const [config, features] = await Promise.all([
-        this.request('config/read', {cwd: emptyCwd, includeLayers: true}),
-        this.request('experimentalFeature/list', {limit: 200})
-      ]);
-      if (!this.isIsolatedConfig(config, features)) throw providerError('NLI_CODEX_INCOMPATIBLE');
+      const config = await this.request('config/read', {cwd: emptyCwd, includeLayers: true});
+      const missingFeatures = this.getMissingIsolatedFeatures(config);
+      if (!missingFeatures) throw providerError('NLI_CODEX_INCOMPATIBLE');
+      if (missingFeatures.length > 0) {
+        const features = await this.request('experimentalFeature/list', {limit: 200});
+        if (!this.isIsolatedFeatureList(features, missingFeatures)) {
+          throw providerError('NLI_CODEX_INCOMPATIBLE');
+        }
+      }
     } catch (error) {
       const failure = error instanceof NliProviderError ? error : providerError('NLI_CODEX_INCOMPATIBLE');
       this.onChildFailure(child, failure);
@@ -472,23 +449,59 @@ export class CodexAppServerProvider implements NliProvider {
     }
   }
 
-  private isIsolatedConfig(configResponse: unknown, featureResponse: unknown): boolean {
-    if (!isObject(configResponse) || !isObject(configResponse.config) || !isObject(featureResponse)) return false;
+  private getMissingIsolatedFeatures(configResponse: unknown): readonly string[] | undefined {
+    if (!isObject(configResponse) || !isObject(configResponse.config)) return undefined;
     const config = configResponse.config;
     if (
       config.approval_policy !== 'never' ||
       (config.sandbox_mode !== 'read-only' && config.sandbox_mode !== 'readOnly') ||
       config.web_search !== 'disabled'
     ) {
-      return false;
+      return undefined;
     }
-    const credentialStores = collectValues(configResponse, 'cli_auth_credentials_store');
-    if (credentialStores.length === 0 || credentialStores.some((value) => value !== 'keyring')) return false;
+    if (Object.prototype.hasOwnProperty.call(config, 'cli_auth_credentials_store')) {
+      if (config.cli_auth_credentials_store !== 'keyring') return undefined;
+    } else {
+      if (!Array.isArray(configResponse.layers)) return undefined;
+      const credentialStores = configResponse.layers.flatMap((layer) => {
+        if (
+          !isObject(layer) ||
+          !isObject(layer.config) ||
+          !Object.prototype.hasOwnProperty.call(layer.config, 'cli_auth_credentials_store')
+        ) {
+          return [];
+        }
+        return [layer.config.cli_auth_credentials_store];
+      });
+      if (credentialStores.length === 0 || credentialStores.some((value) => value !== 'keyring')) {
+        return undefined;
+      }
+    }
+
+    let features: JsonObject = {};
+    if (Object.prototype.hasOwnProperty.call(config, 'features')) {
+      if (!isObject(config.features)) return undefined;
+      features = config.features;
+    }
+    const missingFeatures: string[] = [];
+    for (const name of REQUIRED_FEATURES) {
+      if (Object.prototype.hasOwnProperty.call(features, name)) {
+        if (features[name] !== false) return undefined;
+      } else {
+        missingFeatures.push(name);
+      }
+    }
+    return missingFeatures;
+  }
+
+  private isIsolatedFeatureList(featureResponse: unknown, requiredFeatures: readonly string[]): boolean {
+    if (!isObject(featureResponse)) return false;
     const features = featureResponse.data;
     if (!Array.isArray(features)) return false;
-    return REQUIRED_FEATURES.every((name) =>
-      features.some((feature: unknown) => isObject(feature) && feature.name === name && feature.enabled === false)
-    );
+    return requiredFeatures.every((name) => {
+      const matching = features.filter((feature: unknown) => isObject(feature) && feature.name === name);
+      return matching.length > 0 && matching.every((feature) => feature.enabled === false);
+    });
   }
 
   private request(method: string, params: unknown, signal?: AbortSignal): Promise<unknown> {

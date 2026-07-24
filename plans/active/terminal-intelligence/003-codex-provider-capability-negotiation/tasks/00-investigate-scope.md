@@ -15,3 +15,9 @@ Reproduce the installed-Codex failure and record success before changing behavio
 
 - [ ] Root cause is provider startup validation, not missing auth methods.
 - [ ] Installed CLI proves required methods without completing OAuth or exposing secrets.
+
+## Verify
+
+- [ ] Run `codex --version` and record the installed executable version without any account data.
+- [ ] Run `codex app-server --help | Select-String 'stdio|strict-config|generate-json-schema'` and confirm the required app-server surfaces are present.
+- [ ] Run `rg -n "MINIMUM_CODEX_VERSION|collectValues|experimentalFeature/list|cli_auth_credentials_store" app/nli/codex-app-server.ts test/unit/nli-codex-app-server.test.ts` and cite the pre-fix startup gates in the task completion evidence.

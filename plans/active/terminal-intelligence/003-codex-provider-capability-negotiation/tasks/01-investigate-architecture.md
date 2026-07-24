@@ -14,3 +14,8 @@ Trace renderer actions to provider and errors back to the panel. Keep the fix wi
 
 - [ ] Sole constructor and all direct surfaces are listed.
 - [ ] No divergent compatibility path is uncovered.
+
+## Verify
+
+- [ ] Run `rg -n "new CodexAppServerProvider|providerFactory|getAuthStatus\\(|\\.login\\(|\\.interpret\\(" app typings test/unit` and account for the production constructor, service calls, coordinator/RPC entry points, and test seams.
+- [ ] Run `rg -n "NLI_CODEX_INCOMPATIBLE|NliProvider" app typings` and confirm the existing provider/error contracts remain the only renderer-facing boundary.

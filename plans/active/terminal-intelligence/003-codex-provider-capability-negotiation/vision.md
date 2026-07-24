@@ -30,7 +30,7 @@ This source-controlled Electron-main behavior benefits every Hyper user on a com
 
 ## Integration surface
 
-`app/ui/window.ts` has the only production constructor. `NliService` consumes it through `NliProvider`; no divergent compatibility path exists. Direct surfaces are provider startup, provider unit fixtures, the retained legacy fixture, and NLI documentation.
+`app/ui/window.ts` has the only production constructor. Its status/login RPC handlers call `NliService`, and `app/nli/window-coordinator.ts` delegates cross-window auth actions to the same service. `NliService` consumes the provider through `NliProvider`; no divergent compatibility path exists. Direct surfaces are provider startup, service auth calls, provider unit fixtures, the retained legacy fixture, and NLI documentation. Renderer, config schema, and session integration are consumers of the stable service/types only and require no code change.
 
 ## Module Boundaries
 
@@ -54,6 +54,14 @@ Version branding, JSON-RPC handshake details, effective-config inspection, featu
 - Private home, empty cwd, environment allowlist, hidden non-shell spawn, bounded JSONL, and server-request denial remain intact.
 - Credentials, stderr, protocol payloads, and metadata never enter renderer state, PTY output, diagnostics, or logs.
 - Existing error mapping and auth/interpretation semantics remain unchanged.
+
+## Operational characteristics
+
+Startup remains lazy and single-flight per `NliService`. Modern Codex responses avoid the extra experimental feature-list request when effective feature state is complete; legacy responses add at most the existing one bounded request. No collection scales with terminal history, project size, or account data.
+
+## Delivery and rollback
+
+The implementation branch is verified first, merged by PR into `dev`, and local/remote `dev` are fast-forwarded before the final package is built and relaunched. Rollback is a revert of that merge commit followed by the same package smoke and redeploy; no user config, credential, or storage migration is introduced.
 
 ## Success signals
 

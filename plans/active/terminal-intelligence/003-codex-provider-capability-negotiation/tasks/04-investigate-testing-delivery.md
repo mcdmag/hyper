@@ -14,3 +14,9 @@ Turn the diagnosis into a focused test matrix and realistic delivery check. Cove
 
 - [ ] Every behavior has automated evidence and security negatives remain.
 - [ ] Packaged proof is distinct from source proof.
+
+## Verify
+
+- [ ] Run `Get-Command codex, pnpm, gh | Select-Object Name, Source` and confirm all delivery tools resolve before implementation.
+- [ ] Run `Get-Item scripts/test-nli-packaged.ps1, test/unit/nli-codex-app-server.test.ts, test/fixtures/nli/codex-app-server-0.144.6-v2-subset.json | Select-Object FullName, Length` and confirm the focused, fixture, and packaged seams exist.
+- [ ] Run `pnpm exec electron-builder --help | Select-String 'win|dir|publish'` to confirm the local Windows package dry-run surface used by Task 07.

@@ -14,8 +14,9 @@ Hyper rejects installed Codex CLI 0.145 before login even though its app-server 
 2. Replace recursive scanning with explicit effective-state inspection. Prefer `config.cli_auth_credentials_store`; when absent, inspect only `layers[*].config.cli_auth_credentials_store` as the legacy representation. Wrong-typed, unsafe, contradictory, missing, or unprovable values fail closed.
 3. Validate approval policy, read-only sandbox, disabled web search, and dangerous features from effective `config/read`. When all required `config.features` keys are explicitly false, do not depend on `experimentalFeature/list`; otherwise use that method only as the tested 0.144.6 fallback.
 4. Add regression tests for the installed 0.145 shape, provenance collisions, version independence, effective precedence, legacy fallback, and fail-closed malformed/unsafe cases.
-5. Update documentation to describe capability compatibility without a numeric minimum-version promise.
-6. Validate focused/full tests, a real installed-Codex provider probe, production build/package smoke, and relaunched packaged Hyper.
+5. Add a redacted live-provider smoke script that loads the compiled provider, calls only `getAuthStatus()` against the installed Codex executable, prints only `signed-out` or `signed-in`, and always disposes its private temporary user-data directory.
+6. Update documentation to describe capability compatibility without a numeric minimum-version promise.
+7. Validate focused/full tests, a real installed-Codex provider probe, production build/package smoke, and relaunched packaged Hyper.
 
 ## State contracts
 
@@ -42,6 +43,8 @@ No HTTP endpoint, renderer RPC, public TypeScript interface, or user configurati
 | `account/read` | `{refreshToken: false}` | Existing `{account: object|null, requiresOpenaiAuth: boolean}` contract, unchanged |
 
 JSON-RPC method-not-found, malformed response, unproven feature state, or an unsafe effective value maps to the existing `NLI_CODEX_INCOMPATIBLE` error. No HTTP status codes are involved.
+
+The GitHub delivery contract is explicit: push `feature/terminal-intelligence/003-codex-provider-capability-negotiation`, create the PR with `--base dev`, merge that PR into `dev`, then fetch and fast-forward the primary `E:\repo\hyper` checkout while it remains on `dev`. No generated review command targeting `main` is part of this plan.
 
 ## Integration surface
 
@@ -89,6 +92,7 @@ Resolve the merged PR's commit with `gh pr view --json mergeCommit --jq '.mergeC
 
 - `app/nli/codex-app-server.ts`
 - `test/unit/nli-codex-app-server.test.ts`
+- `scripts/test-nli-codex-provider.cjs`
 - `docs/natural-language-interface.md`
 
 ## Out of scope
@@ -106,7 +110,7 @@ Resolve the merged PR's commit with `gh pr view --json mergeCommit --jq '.mergeC
 - `pnpm exec tsc -b --pretty false`
 - `pnpm run test:unit`
 - `pnpm run build`
-- Invoke the compiled real provider with installed Codex; `getAuthStatus()` returns signed-out or signed-in rather than incompatible without exposing secrets.
+- Run `node scripts/test-nli-codex-provider.cjs "$((Get-Command codex).Source)"` after `pnpm run build`; require exactly `signed-out` or `signed-in` and no account label, token, URL, stderr, or raw JSON-RPC output.
 - Rebuild/package Hyper, run packaged NLI smoke, relaunch for user testing.
 - Commit only intended files, create/merge PR into `dev`, fast-forward local and remote `dev`, and confirm deployed executable comes from merged source.
 - A task completes only with direct source, test, documentation, or git evidence. Implementation commits include `Spec-ref: 003-codex-provider-capability-negotiation`. Final delivery requires the real installed Codex probe, packaged relaunch, merged PR, and verified local/remote dev ancestry.

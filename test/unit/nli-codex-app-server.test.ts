@@ -354,6 +354,77 @@ test('modern capability negotiation reaches the existing browser login flow', as
   }
 });
 
+test('browser login accepts the generated completion schema when optional loginId is omitted', async (t) => {
+  const harness = makeHarness(
+    standardHandler({
+      'account/login/start': (message, child) => {
+        child.pushMessage(
+          response(message, {
+            type: 'chatgpt',
+            authUrl: 'https://auth.openai.com/start',
+            loginId: 'schema-login'
+          })
+        );
+        queueMicrotask(() =>
+          child.pushMessage({
+            method: 'account/login/completed',
+            params: {success: true}
+          })
+        );
+      },
+      'account/read': (message, child) =>
+        child.pushMessage(
+          response(message, {
+            account: {type: 'chatgpt', email: 'schema@example.test'},
+            requiresOpenaiAuth: true
+          })
+        )
+    })
+  );
+  try {
+    t.deepEqual(await harness.provider.login(), {
+      status: 'signed-in',
+      accountLabel: 'schema@example.test'
+    });
+    t.deepEqual(harness.opened, ['https://auth.openai.com/start']);
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('browser login recovers from a missed completion notification using authoritative account state', async (t) => {
+  const harness = makeHarness(
+    standardHandler({
+      'account/login/start': (message, child) =>
+        child.pushMessage(
+          response(message, {
+            type: 'chatgpt',
+            authUrl: 'https://auth.openai.com/start',
+            loginId: 'missed-notification'
+          })
+        ),
+      'account/read': (message, child) =>
+        child.pushMessage(
+          response(message, {
+            account: {type: 'chatgpt', email: 'recovered@example.test'},
+            requiresOpenaiAuth: true
+          })
+        )
+    }),
+    25
+  );
+  try {
+    t.deepEqual(await harness.provider.login(), {
+      status: 'signed-in',
+      accountLabel: 'recovered@example.test'
+    });
+    const methods = harness.factory.children[0].received.map((message) => message.method);
+    t.false(methods.includes('account/login/cancel'));
+  } finally {
+    await harness.cleanup();
+  }
+});
+
 test('effective capability values take precedence while targeted legacy fallbacks remain fail closed', async (t) => {
   const effectiveWins = makeHarness(
     standardHandler({

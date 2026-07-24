@@ -6,7 +6,7 @@ The feature is disabled and private by default.
 
 ## Set up
 
-1. Install a compatible [Codex CLI](https://learn.chatgpt.com/docs/developer-commands?surface=cli) and make `codex` available on `PATH`, or set `codexExecutable` to its absolute path. Hyper requires Codex CLI 0.144.6 or newer and also checks the app-server protocol and isolation capabilities at runtime.
+1. Install a compatible [Codex CLI](https://learn.chatgpt.com/docs/developer-commands?surface=cli) and make `codex` available on `PATH`, or set `codexExecutable` to its absolute path. Hyper checks the app-server protocol and isolation capabilities at runtime instead of accepting or rejecting a CLI by version text.
 2. On Windows, configure Hyper to start an interactive PowerShell 5.1 (`powershell.exe`) or PowerShell 7 (`pwsh.exe`) session. The default `cmd.exe` session remains a normal terminal but cannot activate automatic fallback.
 3. Open **Tools -> Natural Language Setup**.
 4. Add the following object under the root `config` object in `hyper.json`, save, and start a new PowerShell tab:
@@ -75,7 +75,7 @@ An approved command is written once to the same original PTY followed by PowerSh
 | Bash, zsh, fish, SSH, or arbitrary shells | Not supported | No output guessing or exit-code heuristic is used. |
 | PowerShell with `-Command`, `-File`, `-EncodedCommand`, non-interactive/server modes, or conflicting arguments | Not supported | Startup arguments remain unchanged. |
 
-The Codex executable path is configurable, but provider support is not based on version alone. Startup validates `initialize`, effective config, and the required disabled-feature list. Account login/read/logout and structured thread/turn operations are validated when those paths are first used. A missing method, older CLI, incompatible response shape, or isolation setting that cannot be verified fails closed with an incompatible-provider error and cannot produce an executable plan.
+The Codex executable path is configurable, but provider support is capability-based rather than version-based. Startup validates `initialize` and the effective security configuration. When the effective config reports every required feature, Hyper uses it directly; a legacy feature-list request is used only to prove required values absent from that map. Account login/read/logout and structured thread/turn operations are validated when those paths are first used. A missing method, incompatible response shape, or isolation setting that cannot be verified fails closed with an incompatible-provider error and cannot produce an executable plan.
 
 ## Privacy and sign-in
 
@@ -109,7 +109,7 @@ goals = false
 shell_snapshot = false
 ```
 
-Hyper reads the effective config and feature list back from the app server and fails closed if these settings are unavailable. It sends no runtime workspace roots or dynamic tools and denies every server tool, file, or approval request before dispatch. The dedicated Codex home contains no Hyper-provided MCP servers, skills, plugins, hooks, memories, or project instructions.
+Hyper reads the effective config back from the app server and fails closed if the locked-down settings cannot be proven. Effective values are authoritative; origins, provenance, and other response metadata are not treated as configuration. For older compatible response shapes that omit required feature values from effective config, Hyper checks those missing values through the feature list. It sends no runtime workspace roots or dynamic tools and denies every server tool, file, or approval request before dispatch. The dedicated Codex home contains no Hyper-provided MCP servers, skills, plugins, hooks, memories, or project instructions.
 
 The child process receives an allowlist of platform variables only: path and executable lookup, OS roots, the user's home/profile and app-data locations required by the platform credential store, temporary/runtime/locale variables, and the dedicated `CODEX_HOME`. API keys, access tokens, secrets, MCP/plugin/project variables, terminal profile variables, and `HYPER_NLI_E2E_FIXTURE` are not inherited. Stderr and routine diagnostics are reduced to display-safe state/error codes; command content and tokens are not logged.
 
@@ -119,7 +119,7 @@ Credentials are owned by Codex and must remain in the operating-system keyring. 
 
 - **Unsupported shell:** start a new interactive PowerShell 5.1 or 7 tab. Hyper intentionally cannot infer natural language from `cmd.exe` or WSL output.
 - **Codex missing:** run `codex --version` from PowerShell or set an absolute `codexExecutable` path.
-- **Codex incompatible:** install a compatible Codex CLI. Version 0.144.6 is the minimum. Startup checks initialization and locked-down config; account and thread/turn methods are checked lazily when first used.
+- **Codex incompatible:** install a Codex CLI whose app server supports Hyper's required methods and locked-down configuration. Version branding is not a compatibility gate. Startup checks initialization and effective isolation capabilities; account and thread/turn methods are checked lazily when first used.
 - **Keyring unavailable:** restore the operating-system credential store. Hyper will not save credentials to a file.
 - **Private storage unavailable:** check write permissions for Hyper's user-data directory. No login or command is queued.
 - **Offline, rate-limited, or timed out:** the original terminal failure has already completed and remains visible. Retry explicitly; nothing is queued.

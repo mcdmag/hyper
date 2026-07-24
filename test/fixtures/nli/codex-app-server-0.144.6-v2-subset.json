@@ -15,7 +15,7 @@
     "v2/TurnCompletedNotification.json"
   ],
   "transport": "jsonl-stdio",
-  "minimumVersion": "0.144.6",
+  "compatibilityBaseline": "0.144.6",
   "generatedSchemaSubset": {
     "initialize": {
       "params": {

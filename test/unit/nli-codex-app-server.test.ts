@@ -667,7 +667,7 @@ test('uses ephemeral tool-free turns with outputSchema and returns fragmented st
                 turn: {
                   id: 'turn-1',
                   status: 'completed',
-                  items: [{id: 'message-1', type: 'agentMessage', text: JSON.stringify(plan)}]
+                  items: [{id: 'message-1', type: 'agentMessage', text: JSON.stringify({result: plan})}]
                 }
               }
             },
@@ -685,7 +685,7 @@ test('uses ephemeral tool-free turns with outputSchema and returns fragmented st
       unknown
     >;
     t.is(thread.approvalPolicy, 'never');
-    t.is(thread.sandbox, 'readOnly');
+    t.is(thread.sandbox, 'read-only');
     t.deepEqual(thread.dynamicTools, []);
     t.deepEqual(thread.environments, []);
     t.deepEqual(thread.runtimeWorkspaceRoots, []);
@@ -694,8 +694,95 @@ test('uses ephemeral tool-free turns with outputSchema and returns fragmented st
     t.deepEqual(turn.environments, []);
     t.deepEqual(turn.runtimeWorkspaceRoots, []);
     t.truthy(turn.outputSchema);
+    const outputSchema = turn.outputSchema as Record<string, unknown>;
+    t.is(outputSchema.type, 'object');
+    t.false('oneOf' in outputSchema);
+    t.deepEqual(outputSchema.required, ['result']);
     t.deepEqual(JSON.parse((turn.input as {text: string}[])[0].text), context);
     t.false(JSON.stringify(turn).includes(process.cwd()));
+  } finally {
+    await harness.cleanup();
+  }
+});
+
+test('reads current Codex output from the correlated final item when the turn snapshot omits items', async (t) => {
+  const plan = {
+    version: 1,
+    kind: 'plan',
+    planId: 'ip-plan',
+    summary: 'Show the local IP address.',
+    options: [
+      {
+        optionId: 'local-ip',
+        label: 'Local IPv4',
+        rationale: 'Lists preferred local IPv4 addresses.',
+        assumptions: ['The local network address is wanted.'],
+        purpose: 'Display local IPv4 addresses.',
+        shellText: 'Get-NetIPAddress -AddressFamily IPv4'
+      }
+    ]
+  };
+  const harness = makeHarness(
+    standardHandler({
+      'thread/start': (message, child) => child.pushMessage(response(message, {thread: {id: 'thread-current'}})),
+      'turn/start': (message, child) => {
+        child.pushMessage(response(message, {turn: {id: 'turn-current'}}));
+        queueMicrotask(() => {
+          child.pushMessage({
+            method: 'item/completed',
+            params: {
+              threadId: 'thread-other',
+              turnId: 'turn-other',
+              completedAtMs: 1,
+              item: {
+                id: 'message-other',
+                type: 'agentMessage',
+                text: JSON.stringify({result: plan}),
+                phase: 'final_answer'
+              }
+            }
+          });
+          child.pushMessage({
+            method: 'item/completed',
+            params: {
+              threadId: 'thread-current',
+              turnId: 'turn-current',
+              completedAtMs: 1,
+              item: {
+                id: 'message-commentary',
+                type: 'agentMessage',
+                text: JSON.stringify({result: plan}),
+                phase: 'commentary'
+              }
+            }
+          });
+          child.pushMessage({
+            method: 'item/completed',
+            params: {
+              threadId: 'thread-current',
+              turnId: 'turn-current',
+              completedAtMs: 1,
+              item: {
+                id: 'message-current',
+                type: 'agentMessage',
+                text: JSON.stringify({result: plan}),
+                phase: 'final_answer'
+              }
+            }
+          });
+          child.pushMessage({
+            method: 'turn/completed',
+            params: {
+              threadId: 'thread-current',
+              turn: {id: 'turn-current', status: 'completed', items: []}
+            }
+          });
+        });
+      }
+    })
+  );
+  try {
+    t.deepEqual(await harness.provider.interpret(context, new AbortController().signal), plan);
   } finally {
     await harness.cleanup();
   }

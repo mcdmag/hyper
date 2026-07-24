@@ -443,62 +443,70 @@ export class ImmutableCommandPlan {
 
 export const NLI_PROVIDER_OUTPUT_SCHEMA: Readonly<Record<string, unknown>> = Object.freeze({
   type: 'object',
-  oneOf: [
-    {
-      required: ['version', 'kind', 'planId', 'summary', 'options'],
-      properties: {
-        version: {const: 1},
-        kind: {const: 'plan'},
-        planId: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.id},
-        summary: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.summary},
-        options: {
-          type: 'array',
-          minItems: 1,
-          maxItems: 3,
-          items: {
-            type: 'object',
-            required: ['optionId', 'label', 'rationale', 'assumptions', 'purpose', 'shellText'],
-            properties: {
-              optionId: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.id},
-              label: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.label},
-              rationale: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.rationale},
-              assumptions: {
-                type: 'array',
-                maxItems: FIELD_LIMITS.assumptions,
-                items: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.assumption}
-              },
-              purpose: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.purpose},
-              shellText: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.shellText}
-            },
-            additionalProperties: false
-          }
+  required: ['result'],
+  properties: {
+    result: {
+      anyOf: [
+        {
+          type: 'object',
+          required: ['version', 'kind', 'planId', 'summary', 'options'],
+          properties: {
+            version: {type: 'integer', enum: [1]},
+            kind: {type: 'string', enum: ['plan']},
+            planId: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.id},
+            summary: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.summary},
+            options: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 3,
+              items: {
+                type: 'object',
+                required: ['optionId', 'label', 'rationale', 'assumptions', 'purpose', 'shellText'],
+                properties: {
+                  optionId: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.id},
+                  label: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.label},
+                  rationale: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.rationale},
+                  assumptions: {
+                    type: 'array',
+                    maxItems: FIELD_LIMITS.assumptions,
+                    items: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.assumption}
+                  },
+                  purpose: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.purpose},
+                  shellText: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.shellText}
+                },
+                additionalProperties: false
+              }
+            }
+          },
+          additionalProperties: false
+        },
+        {
+          type: 'object',
+          required: ['version', 'kind', 'planId', 'question', 'choices'],
+          properties: {
+            version: {type: 'integer', enum: [1]},
+            kind: {type: 'string', enum: ['clarification']},
+            planId: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.id},
+            question: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.question},
+            choices: {
+              type: 'array',
+              minItems: 2,
+              maxItems: 3,
+              items: {
+                type: 'object',
+                required: ['optionId', 'label'],
+                properties: {
+                  optionId: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.id},
+                  label: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.label}
+                },
+                additionalProperties: false
+              }
+            }
+          },
+          additionalProperties: false
         }
-      },
-      additionalProperties: false
-    },
-    {
-      required: ['version', 'kind', 'planId', 'question', 'choices'],
-      properties: {
-        version: {const: 1},
-        kind: {const: 'clarification'},
-        planId: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.id},
-        question: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.question},
-        choices: {
-          type: 'array',
-          minItems: 2,
-          maxItems: 3,
-          items: {
-            type: 'object',
-            required: ['optionId', 'label'],
-            properties: {
-              optionId: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.id},
-              label: {type: 'string', minLength: 1, maxLength: FIELD_LIMITS.label}
-            },
-            additionalProperties: false
-          }
-        }
-      },
-      additionalProperties: false
+      ]
     }
-  ]
+  },
+  additionalProperties: false
 });

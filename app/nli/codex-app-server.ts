@@ -159,6 +159,14 @@ const accountState = (response: unknown): NliAuthState => {
   };
 };
 
+const parseAgentMessage = (message: JsonObject): unknown => {
+  try {
+    return JSON.parse(message.text as string) as unknown;
+  } catch (_error) {
+    throw providerError('NLI_VALIDATION_FAILED');
+  }
+};
+
 const extractTurnResult = (params: unknown): unknown => {
   if (!isObject(params) || !isObject(params.turn)) throw providerError('NLI_VALIDATION_FAILED');
   const turn = params.turn;
@@ -168,12 +176,19 @@ const extractTurnResult = (params: unknown): unknown => {
   const messages = turn.items.filter(
     (item): item is JsonObject => isObject(item) && item.type === 'agentMessage' && typeof item.text === 'string'
   );
-  if (messages.length === 0) throw providerError('NLI_VALIDATION_FAILED');
-  try {
-    return JSON.parse(messages[messages.length - 1].text as string) as unknown;
-  } catch (_error) {
+  return messages.length === 0 ? undefined : parseAgentMessage(messages[messages.length - 1]);
+};
+
+const extractCompletedItemResult = (params: unknown): unknown => {
+  if (
+    !isObject(params) ||
+    !isObject(params.item) ||
+    params.item.type !== 'agentMessage' ||
+    typeof params.item.text !== 'string'
+  ) {
     throw providerError('NLI_VALIDATION_FAILED');
   }
+  return parseAgentMessage(params.item);
 };
 
 export class CodexAppServerProvider implements NliProvider {
@@ -291,16 +306,18 @@ export class CodexAppServerProvider implements NliProvider {
           environments: [],
           ephemeral: true,
           runtimeWorkspaceRoots: [],
-          sandbox: 'readOnly'
+          sandbox: 'read-only'
         },
         deadline.signal
       );
       threadId = readString(isObject(threadResponse) ? threadResponse.thread : undefined, 'id');
       if (!threadId) throw providerError('NLI_CODEX_INCOMPATIBLE');
       const outputSchema = JSON.parse(JSON.stringify(NLI_PROVIDER_OUTPUT_SCHEMA)) as JsonObject;
-      const planSchema = (outputSchema.oneOf as JsonObject[])[0];
-      const properties = planSchema.properties as JsonObject;
-      const options = properties.options as JsonObject;
+      const rootProperties = outputSchema.properties as JsonObject;
+      const resultSchema = rootProperties.result as JsonObject;
+      const planSchema = (resultSchema.anyOf as JsonObject[])[0];
+      const planProperties = planSchema.properties as JsonObject;
+      const options = planProperties.options as JsonObject;
       options.maxItems = Math.max(1, Math.min(3, this.options.maxOptions));
       const turnResponse = await this.request(
         'turn/start',
@@ -322,7 +339,29 @@ export class CodexAppServerProvider implements NliProvider {
         (params) => readString(isObject(params) ? params.turn : undefined, 'id') === turnId,
         deadline.signal
       );
-      return validateCommandPlan(extractTurnResult(completion), this.options.maxOptions);
+      const turnResult = extractTurnResult(completion);
+      const envelope =
+        turnResult === undefined
+          ? extractCompletedItemResult(
+              await this.waitForNotification(
+                'item/completed',
+                (params) =>
+                  isObject(params) &&
+                  params.threadId === threadId &&
+                  params.turnId === turnId &&
+                  isObject(params.item) &&
+                  params.item.type === 'agentMessage' &&
+                  (params.item.phase === undefined ||
+                    params.item.phase === null ||
+                    params.item.phase === 'final_answer'),
+                deadline.signal
+              )
+            )
+          : turnResult;
+      if (!isObject(envelope) || Object.keys(envelope).length !== 1 || !('result' in envelope)) {
+        throw providerError('NLI_VALIDATION_FAILED');
+      }
+      return validateCommandPlan(envelope.result, this.options.maxOptions);
     } catch (error) {
       if (threadId && turnId && this.child) {
         void this.request('turn/interrupt', {threadId, turnId}).catch(() => undefined);

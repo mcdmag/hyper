@@ -7,6 +7,11 @@ import Notification_ from './notification';
 
 const Notification = decorate(Notification_, 'Notification');
 
+const openLink = (event: React.MouseEvent<HTMLAnchorElement>) => {
+  event.preventDefault();
+  window.rpc.emit('open link', {url: event.currentTarget.href});
+};
+
 const Notifications = forwardRef<HTMLDivElement, NotificationsProps>((props, ref) => {
   return (
     <div className="notifications_view" ref={ref}>
@@ -45,14 +50,7 @@ const Notifications = forwardRef<HTMLDivElement, NotificationsProps>((props, ref
           {props.messageURL ? (
             <>
               {props.messageText} (
-              <a
-                style={{color: '#fff'}}
-                onClick={(ev) => {
-                  void window.require('electron').shell.openExternal(ev.currentTarget.href);
-                  ev.preventDefault();
-                }}
-                href={props.messageURL}
-              >
+              <a style={{color: '#fff'}} onClick={openLink} href={props.messageURL}>
                 more
               </a>
               )
@@ -74,10 +72,7 @@ const Notifications = forwardRef<HTMLDivElement, NotificationsProps>((props, ref
           {props.updateNote && ` ${props.updateNote.trim().replace(/\.$/, '')}`} (
           <a
             style={{color: '#000'}}
-            onClick={(ev) => {
-              void window.require('electron').shell.openExternal(ev.currentTarget.href);
-              ev.preventDefault();
-            }}
+            onClick={openLink}
             href={`https://github.com/vercel/hyper/releases/tag/${props.updateVersion}`}
           >
             notes
@@ -102,10 +97,7 @@ const Notifications = forwardRef<HTMLDivElement, NotificationsProps>((props, ref
                 textDecoration: 'underline',
                 fontWeight: 'bold'
               }}
-              onClick={(ev) => {
-                void window.require('electron').shell.openExternal(ev.currentTarget.href);
-                ev.preventDefault();
-              }}
+              onClick={openLink}
               href={props.updateReleaseUrl!}
             >
               Download

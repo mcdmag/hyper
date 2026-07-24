@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "feature": "e2e:unknown:nli-default-off-and-opaque-approval-contract",
+  "obligations": [
+    {
+      "id": "e2e:unknown:nli-default-off-and-opaque-approval-contract",
+      "kind": "e2e",
+      "surface": "unknown",
+      "flow": "NLI default-off and opaque-approval contract",
+      "status": "satisfied",
+      "createdInTask": "Task 00: Establish contracts, configuration, and seams",
+      "verifiedAt": 1784700694037,
+      "evidencePath": "plans/active/terminal-intelligence/001-shell-first-natural-language-interface/proof/artifacts/task08/verification.md"
+    },
+    {
+      "id": "visual:per-pane-nli-panel:nli-proposal-and-approval-panel",
+      "kind": "visual",
+      "surface": "per-pane NLI panel",
+      "flow": "NLI proposal and approval panel",
+      "status": "satisfied",
+      "createdInTask": "Task 00: Establish contracts, configuration, and seams",
+      "verifiedAt": 1784700695908,
+      "evidencePath": "plans/active/terminal-intelligence/001-shell-first-natural-language-interface/proof/artifacts/task08/narrow-single-proposal-built.png"
+    },
+    {
+      "id": "e2e:electron-main-nli-provider:codex-oauth-and-hardened-proposal-provider",
+      "kind": "e2e",
+      "surface": "electron-main-nli-provider",
+      "flow": "Codex OAuth and hardened proposal provider",
+      "status": "satisfied",
+      "createdInTask": "Task 04: Add the hardened Codex OAuth provider",
+      "verifiedAt": 1784700697786,
+      "evidencePath": "plans/active/terminal-intelligence/001-shell-first-natural-language-interface/proof/artifacts/task08/verification.md"
+    },
+    {
+      "id": "visual:per-pane-nli-panel:codex-oauth-and-hardened-proposal-provider",
+      "kind": "visual",
+      "surface": "per-pane-nli-panel",
+      "flow": "Codex OAuth and hardened proposal provider",
+      "status": "satisfied",
+      "createdInTask": "Task 04: Add the hardened Codex OAuth provider",
+      "verifiedAt": 1784700699631,
+      "evidencePath": "plans/active/terminal-intelligence/001-shell-first-natural-language-interface/proof/artifacts/task08/packaged-sent.png"
+    },
+    {
+      "id": "e2e:electron-main-nli-approval:immutable-plan-validation-privacy-gating-risk-classification-and-approval-replay-protection",
+      "kind": "e2e",
+      "surface": "electron-main-nli-approval",
+      "flow": "immutable plan validation, privacy gating, risk classification, and approval replay protection",
+      "status": "satisfied",
+      "createdInTask": "Task 05: Validate proposals and make approval immutable",
+      "verifiedAt": 1784700701438,
+      "evidencePath": "plans/active/terminal-intelligence/001-shell-first-natural-language-interface/proof/artifacts/task08/verification.md"
+    },
+    {
+      "id": "visual:per-pane-nli-panel:immutable-plan-validation-privacy-gating-risk-classification-and-approval-replay-protection",
+      "kind": "visual",
+      "surface": "per-pane-nli-panel",
+      "flow": "immutable plan validation, privacy gating, risk classification, and approval replay protection",
+      "status": "satisfied",
+      "createdInTask": "Task 05: Validate proposals and make approval immutable",
+      "verifiedAt": 1784700703415,
+      "evidencePath": "plans/active/terminal-intelligence/001-shell-first-natural-language-interface/proof/artifacts/task08/narrow-single-proposal-built.png"
+    },
+    {
+      "id": "e2e:electron-renderer-nli-panel:accessible-per-pane-nli-setup-unsupported-shell-guidance-proposal-selection-and-safe-keyboard-recovery",
+      "kind": "e2e",
+      "surface": "electron-renderer-nli-panel",
+      "flow": "accessible per-pane NLI setup, unsupported-shell guidance, proposal selection, and safe keyboard recovery",
+      "status": "satisfied",
+      "createdInTask": "Task 06: Build the per-pane NLI review experience",
+      "verifiedAt": 1784700705323,
+      "evidencePath": "plans/active/terminal-intelligence/001-shell-first-natural-language-interface/proof/artifacts/task08/verification.md"
+    },
+    {
+      "id": "visual:per-pane-nli-panel:responsive-disabled-setup-and-proposal-review-experience",
+      "kind": "visual",
+      "surface": "per-pane-nli-panel",
+      "flow": "responsive disabled setup and proposal review experience",
+      "status": "satisfied",
+      "createdInTask": "Task 06: Build the per-pane NLI review experience",
+      "verifiedAt": 1784700707214,
+      "evidencePath": "plans/active/terminal-intelligence/001-shell-first-natural-language-interface/proof/artifacts/task08/narrow-single-proposal-built.png"
+    },
+    {
+      "id": "e2e:electron-main-nli-execution:approved-immutable-command-writes-exactly-once-to-original-pty-with-replay-stale-sender-closed-session-and-recursion-guards",
+      "kind": "e2e",
+      "surface": "electron-main-nli-execution",
+      "flow": "approved immutable command writes exactly once to original PTY with replay stale sender closed session and recursion guards",
+      "status": "satisfied",
+      "createdInTask": "Task 07: Execute approved text once through the original PTY",
+      "verifiedAt": 1784700709101,
+      "evidencePath": "plans/active/terminal-intelligence/001-shell-first-natural-language-interface/proof/artifacts/task08/verification.md"
+    },
+    {
+      "id": "visual:per-pane-nli-panel:generated-command-failure-explicit-retry-and-unknown-pty-write-outcome-without-retry",
+      "kind": "visual",
+      "surface": "per-pane-nli-panel",
+      "flow": "generated command failure explicit retry and unknown PTY write outcome without retry",
+      "status": "satisfied",
+      "createdInTask": "Task 07: Execute approved text once through the original PTY",
+      "verifiedAt": 1784700711079,
+      "evidencePath": "plans/active/terminal-intelligence/001-shell-first-natural-language-interface/proof/artifacts/task08/packaged-generated-failure.png"
+    }
+  ]
+}

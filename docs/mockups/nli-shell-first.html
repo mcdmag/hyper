@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hyper natural-language fallback reference</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --terminal: #000;
+        --surface: #111;
+        --surface-raised: #191919;
+        --border: #333;
+        --border-strong: #555;
+        --text: #fff;
+        --muted: #a9a9a9;
+        --accent: #68fdfe;
+        --accent-strong: #20c5c6;
+        --positive: #67f86f;
+        --warning: #fffa72;
+        --danger: #fd6f6b;
+        --selection: rgba(248, 28, 229, 0.3);
+        --terminal-font: Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace;
+        --ui-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+        background: #080808;
+        color: var(--text);
+        font-family: var(--ui-font);
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+        padding: 20px;
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button,
+      select,
+      textarea {
+        border: 1px solid var(--border-strong);
+        border-radius: 4px;
+        background: #202020;
+        color: var(--text);
+      }
+
+      button {
+        min-height: 32px;
+        padding: 6px 11px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        border-color: var(--accent-strong);
+      }
+
+      button.primary {
+        border-color: var(--accent-strong);
+        background: #0c3738;
+      }
+
+      button.danger {
+        border-color: #8f3937;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      .reference {
+        width: min(100%, 900px);
+      }
+
+      .reference-toolbar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 10px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .reference-toolbar label {
+        display: grid;
+        gap: 5px;
+      }
+
+      .reference-toolbar select {
+        min-width: 230px;
+        min-height: 32px;
+        padding: 5px 28px 5px 8px;
+      }
+
+      .shell-frame {
+        position: relative;
+        min-height: 620px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--terminal);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+      }
+
+      .tab-strip {
+        display: flex;
+        height: 36px;
+        border-bottom: 1px solid var(--border);
+        background: #111;
+        font-size: 12px;
+      }
+
+      .tab {
+        min-width: 150px;
+        padding: 10px 14px;
+        border-right: 1px solid var(--border);
+        color: var(--text);
+      }
+
+      .terminal-pane {
+        display: grid;
+        grid-template-rows: minmax(180px, 1fr) auto;
+        min-height: 583px;
+      }
+
+      .terminal-output {
+        padding: 14px;
+        overflow: hidden;
+        color: #ddd;
+        font: 12px/1.55 var(--terminal-font);
+        white-space: pre-wrap;
+      }
+
+      .prompt {
+        color: var(--positive);
+      }
+
+      .failed-command {
+        color: var(--text);
+      }
+
+      .shell-error {
+        color: var(--danger);
+      }
+
+      .nli-panel {
+        position: relative;
+        max-height: 430px;
+        overflow: auto;
+        border-top: 1px solid var(--border);
+        background: linear-gradient(180deg, rgba(25, 25, 25, 0.98), rgba(12, 12, 12, 0.99));
+        padding: 14px;
+        font-size: 13px;
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .eyebrow {
+        margin: 0 0 4px;
+        color: var(--accent);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.35;
+      }
+
+      h2 {
+        margin: 14px 0 7px;
+        font-size: 12px;
+      }
+
+      p {
+        margin: 7px 0;
+        line-height: 1.45;
+      }
+
+      .muted,
+      .keyboard-note {
+        color: var(--muted);
+      }
+
+      .keyboard-note {
+        padding-top: 8px;
+        border-top: 1px solid var(--border);
+        font-size: 11px;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-height: 24px;
+        padding: 3px 7px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        color: var(--muted);
+        font-size: 11px;
+      }
+
+      .status[data-tone="warning"] {
+        border-color: #8b842e;
+        color: var(--warning);
+      }
+
+      .status[data-tone="danger"] {
+        border-color: #8f3937;
+        color: var(--danger);
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .config-block,
+      .command-text {
+        width: 100%;
+        overflow: auto;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: #050505;
+        padding: 9px 10px;
+        color: #eee;
+        font: 12px/1.5 var(--terminal-font);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        user-select: text;
+      }
+
+      .choices,
+      .privacy-choices {
+        display: grid;
+        gap: 8px;
+        margin: 10px 0;
+        padding: 0;
+        border: 0;
+      }
+
+      .choice {
+        display: grid;
+        grid-template-columns: 18px minmax(0, 1fr);
+        gap: 8px;
+        padding: 9px;
+        border: 1px solid var(--border);
+        border-radius: 5px;
+        background: #121212;
+      }
+
+      .choice:has(input:checked) {
+        border-color: var(--accent-strong);
+        background: #102223;
+      }
+
+      .choice input {
+        margin-top: 3px;
+      }
+
+      .choice strong,
+      .choice small {
+        display: block;
+      }
+
+      .choice small {
+        margin-top: 3px;
+        color: var(--muted);
+        line-height: 1.4;
+      }
+
+      .risk {
+        display: block;
+        margin-top: 6px;
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .risk.low {
+        color: var(--positive);
+      }
+
+      .risk.medium {
+        color: var(--warning);
+      }
+
+      .risk.high {
+        color: var(--danger);
+      }
+
+      .field {
+        display: grid;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      textarea {
+        min-height: 76px;
+        resize: vertical;
+        padding: 8px;
+        font-family: var(--terminal-font);
+        line-height: 1.45;
+      }
+
+      .notice {
+        padding: 9px 10px;
+        border-left: 3px solid var(--accent-strong);
+        background: rgba(32, 197, 198, 0.08);
+      }
+
+      .notice.warning {
+        border-color: var(--warning);
+        background: rgba(255, 250, 114, 0.07);
+      }
+
+      .notice.danger {
+        border-color: var(--danger);
+        background: rgba(253, 111, 107, 0.08);
+      }
+
+      .spinner {
+        width: 14px;
+        height: 14px;
+        border: 2px solid var(--border-strong);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          scroll-behavior: auto !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+
+      @media (max-width: 480px) {
+        body {
+          display: block;
+          padding: 0;
+        }
+
+        .reference {
+          width: 100%;
+        }
+
+        .reference-toolbar {
+          display: none;
+        }
+
+        .shell-frame {
+          min-height: 720px;
+          border: 0;
+          border-radius: 0;
+        }
+
+        .tab {
+          min-width: 112px;
+        }
+
+        .terminal-pane {
+          min-height: 684px;
+        }
+
+        .terminal-output {
+          min-height: 180px;
+          padding: 12px;
+        }
+
+        .nli-panel {
+          max-height: 500px;
+          padding: 12px;
+        }
+
+        .panel-header {
+          display: grid;
+        }
+
+        .panel-header .status {
+          justify-self: start;
+        }
+
+        .actions {
+          display: grid;
+          grid-template-columns: 1fr;
+        }
+
+        .actions button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="reference">
+      <div class="reference-toolbar" aria-label="Mockup controls">
+        <div>
+          <strong>Hyper NLI interaction reference</strong><br />
+          <span>Terminal output remains visible in every state.</span>
+        </div>
+        <label for="state-picker">
+          Preview state
+          <select id="state-picker">
+            <option value="disabled-setup">Disabled setup</option>
+            <option value="unsupported-shell">Unsupported shell</option>
+            <option value="privacy-and-sign-in">Privacy and sign-in</option>
+            <option value="signing-in">Signing in</option>
+            <option value="signed-in">Signed in</option>
+            <option value="keyring-error">Keyring error</option>
+            <option value="userdata-error">userData error</option>
+            <option value="interpreting">Interpreting</option>
+            <option value="clarification">Clarification</option>
+            <option value="single-proposal">Single proposal</option>
+            <option value="alternatives">Three alternatives</option>
+            <option value="edited-high-risk">Edited high-risk</option>
+            <option value="offline-rate-limit">Offline / rate limit</option>
+            <option value="malformed-response">Malformed response</option>
+            <option value="stale-context">Stale context</option>
+            <option value="sent">Sent to terminal</option>
+          </select>
+        </label>
+      </div>
+
+      <section class="shell-frame" data-viewport="desktop" aria-label="Hyper terminal mockup">
+        <div class="tab-strip" aria-hidden="true">
+          <div class="tab">PowerShell</div>
+        </div>
+        <div class="terminal-pane">
+          <div class="terminal-output" id="terminal-focus" tabindex="-1"><span class="prompt">PS C:\work\hyper&gt;</span> <span class="failed-command">commit the changes and create a pr</span>
+<span class="shell-error">commit: The term 'commit' is not recognized as the name of a cmdlet, function, script file, or operable program.</span>
+<span class="prompt">PS C:\work\hyper&gt;</span></div>
+          <section class="nli-panel" id="nli-panel" aria-labelledby="panel-title"></section>
+        </div>
+      </section>
+    </main>
+
+    <template id="state-disabled-setup" data-state="disabled-setup">
+      <div class="panel-header">
+        <div>
+          <p class="eyebrow">Natural language setup</p>
+          <h1 id="panel-title" tabindex="-1">Turn on shell-first suggestions</h1>
+        </div>
+        <span class="status">Disabled</span>
+      </div>
+      <p>Hyper tries every entry in your terminal first. Codex is contacted only after supported PowerShell reports an unresolved command.</p>
+      <h2>Hyper configuration</h2>
+      <pre class="config-block" tabindex="0">naturalLanguageInterface: {
+  enabled: true,
+  codexExecutable: 'codex',
+  requestTimeoutMs: 30000,
+  maxInputChars: 4096,
+  maxOptions: 3,
+  includeWorkingDirectory: false,
+  includeGitMetadata: false
+}</pre>
+      <div class="actions">
+        <button type="button" class="primary">Open Hyper Configuration</button>
+        <button type="button">Check Codex status</button>
+        <button type="button">Close</button>
+      </div>
+      <p class="keyboard-note">Keyboard: focus starts on this heading. Use Tab or Shift+Tab through actions. Escape closes the panel and restores terminal focus. Opening this panel never makes Enter run a command.</p>
+    </template>
+
+    <template id="state-unsupported-shell" data-state="unsupported-shell">
+      <div class="panel-header"><div><p class="eyebrow">Natural language fallback</p><h1 id="panel-title" tabindex="-1">PowerShell is required for automatic fallback</h1></div><span class="status" data-tone="warning">Unsupported shell</span></div>
+      <div class="notice warning"><strong>This cmd.exe session is unchanged.</strong> Hyper will not inspect its output or guess from exit codes. Start a new interactive PowerShell 5.1 or PowerShell 7 session to use natural-language fallback.</div>
+      <div class="actions"><button type="button" class="primary">Open Hyper Configuration</button><button type="button">Dismiss</button></div>
+    </template>
+
+    <template id="state-privacy-and-sign-in" data-state="privacy-and-sign-in">
+      <div class="panel-header"><div><p class="eyebrow">First use</p><h1 id="panel-title" tabindex="-1">Choose what Codex may receive</h1></div><span class="status">Consent required</span></div>
+      <p>Codex receives the failed line, PowerShell family and version, operating system, an opaque attempt ID, and a one-way working-directory fingerprint. Hyper never adds terminal history, scrollback, environment variables, clipboard contents, file contents, diffs, credentials, or remote URLs as separate context. A failed line that looks like a credential stays local unless you explicitly allow it below.</p>
+      <fieldset class="privacy-choices">
+        <legend>Optional context</legend>
+        <label class="choice"><input type="checkbox" name="share-cwd" /><span><strong>Working directory</strong><small>Share the current path with this interpretation.</small></span></label>
+        <label class="choice"><input type="checkbox" name="share-git" /><span><strong>Limited Git metadata</strong><small>Repository status, branch, staged/unstaged/untracked flags, remote presence, and GitHub CLI availability only; never filenames, diffs, commits, or remote URLs.</small></span></label>
+        <label class="choice"><input type="checkbox" name="share-secret-looking-input" /><span><strong>Secret-looking failed input</strong><small>Off by default. Hyper screens locally and refuses to share input that resembles a credential unless you explicitly allow it.</small></span></label>
+      </fieldset>
+      <div class="actions"><button type="button" class="primary">Accept and sign in with ChatGPT</button><button type="button">Not now</button><button type="button" class="danger">Reset privacy choices</button></div>
+      <p class="muted">ChatGPT sign-in opens in your browser. Credentials remain in the operating-system keyring and never enter Hyper's renderer.</p>
+    </template>
+
+    <template id="state-keyring-error" data-state="keyring-error">
+      <div class="panel-header"><div><p class="eyebrow">Codex sign-in</p><h1 id="panel-title" tabindex="-1">The operating-system keyring is unavailable</h1></div><span class="status" data-tone="danger">Sign-in blocked</span></div>
+      <div class="notice danger" role="alert">Hyper will not fall back to plaintext credentials. Restore keyring access, then retry sign-in.</div>
+      <div class="actions"><button type="button" class="primary">Retry keyring check</button><button type="button">Cancel</button></div>
+    </template>
+
+    <template id="state-signing-in" data-state="signing-in">
+      <div class="panel-header"><div><p class="eyebrow">Codex sign-in</p><h1 id="panel-title" tabindex="-1">Finish signing in with ChatGPT in your browser</h1></div><span class="status"><span class="spinner" aria-hidden="true"></span>Waiting for browser</span></div>
+      <p aria-live="polite" aria-atomic="true">Hyper is waiting for the official Codex browser sign-in to finish. No token is shown to or stored by the renderer.</p>
+      <div class="actions"><button type="button" class="primary">Open sign-in page again</button><button type="button">Cancel sign-in</button></div>
+    </template>
+
+    <template id="state-signed-in" data-state="signed-in">
+      <div class="panel-header"><div><p class="eyebrow">Codex account</p><h1 id="panel-title" tabindex="-1">Signed in with ChatGPT</h1></div><span class="status">Ready</span></div>
+      <p>Natural-language fallback can request command proposals after supported PowerShell reports an unresolved command.</p>
+      <div class="actions"><button type="button" class="primary">Done</button><button type="button" class="danger">Log out of Codex</button><button type="button">Reset privacy choices</button></div>
+    </template>
+
+    <template id="state-userdata-error" data-state="userdata-error">
+      <div class="panel-header"><div><p class="eyebrow">Natural language setup</p><h1 id="panel-title" tabindex="-1">Hyper cannot create its isolated Codex data directory</h1></div><span class="status" data-tone="danger">Storage error</span></div>
+      <div class="notice danger" role="alert">Check write access to Hyper userData. No credentials were stored and the terminal remains usable.</div>
+      <div class="actions"><button type="button" class="primary">Retry</button><button type="button">Show setup help</button><button type="button">Cancel</button></div>
+    </template>
+
+    <template id="state-interpreting" data-state="interpreting">
+      <div class="panel-header"><div><p class="eyebrow">Natural language fallback</p><h1 id="panel-title" tabindex="-1">Finding safe command options</h1></div><span class="status"><span class="spinner" aria-hidden="true"></span>Interpreting</span></div>
+      <p aria-live="polite" aria-atomic="true">Codex is interpreting the unresolved PowerShell entry. Nothing will run without your approval.</p>
+      <div class="actions"><button type="button">Cancel interpretation</button></div>
+    </template>
+
+    <template id="state-clarification" data-state="clarification">
+      <div class="panel-header"><div><p class="eyebrow">Clarification</p><h1 id="panel-title" tabindex="-1">Where should the pull request be opened?</h1></div><span class="status">Choose one</span></div>
+      <fieldset class="choices">
+        <legend class="muted">Use arrow keys to move between choices.</legend>
+        <label class="choice"><input type="radio" name="clarification" checked /><span><strong>Current repository</strong><small>Use the current Git remote and active branch.</small></span></label>
+        <label class="choice"><input type="radio" name="clarification" /><span><strong>Choose a different repository</strong><small>Cancel this attempt and change directories first.</small></span></label>
+      </fieldset>
+      <div class="actions"><button type="button" class="primary">Continue</button><button type="button">Cancel</button></div>
+    </template>
+
+    <template id="state-single-proposal" data-state="single-proposal">
+      <div class="panel-header"><div><p class="eyebrow">Suggested command</p><h1 id="panel-title" tabindex="-1">Review before sending to PowerShell</h1></div><span class="status">1 option</span></div>
+      <p>Stage current changes, create a commit, push the branch, and open a pull request targeting dev.</p>
+      <pre class="command-text" tabindex="0">git add -A; git commit; git push -u origin HEAD; gh pr create --base dev</pre>
+      <span class="risk medium">Medium risk — modifies Git history and publishes a branch. Review each command before approval.</span>
+      <div class="actions"><button type="button" class="primary">Approve and send once</button><button type="button">Edit</button><button type="button">Reject</button></div>
+    </template>
+
+    <template id="state-alternatives" data-state="alternatives">
+      <div class="panel-header"><div><p class="eyebrow">Command options</p><h1 id="panel-title" tabindex="-1">Choose how to publish the changes</h1></div><span class="status">3 options</span></div>
+      <fieldset class="choices">
+        <legend class="muted">Use arrow keys to select an exact command sequence.</legend>
+        <label class="choice"><input type="radio" name="proposal" checked /><span><strong>Commit all changes and open a PR</strong><small class="command-text">git add -A; git commit; git push -u origin HEAD; gh pr create --base dev</small><span class="risk medium">Medium risk — writes Git history and publishes.</span></span></label>
+        <label class="choice"><input type="radio" name="proposal" /><span><strong>Commit staged changes only</strong><small class="command-text">git commit; git push -u origin HEAD; gh pr create --base dev</small><span class="risk medium">Medium risk — leaves unstaged work local.</span></span></label>
+        <label class="choice"><input type="radio" name="proposal" /><span><strong>Create a draft PR</strong><small class="command-text">git add -A; git commit; git push -u origin HEAD; gh pr create --draft --base dev</small><span class="risk medium">Medium risk — publishes as draft.</span></span></label>
+      </fieldset>
+      <div class="actions"><button type="button" class="primary">Review selected option</button><button type="button">Edit</button><button type="button">Reject all</button></div>
+    </template>
+
+    <template id="state-edited-high-risk" data-state="edited-high-risk">
+      <div class="panel-header"><div><p class="eyebrow">Edited command</p><h1 id="panel-title" tabindex="-1">Confirm a high-risk command</h1></div><span class="status" data-tone="danger">Fresh approval required</span></div>
+      <label class="field" for="command-edit"><span>Exact command to send</span><textarea id="command-edit" spellcheck="false">Remove-Item -Recurse -Force .\dist; pnpm run dist</textarea></label>
+      <div class="notice danger"><strong>High risk — recursive deletion.</strong> This locally detected risk is independent of the model label. Confirm only if the displayed path is correct.</div>
+      <label class="choice"><input type="checkbox" name="high-risk-confirmation" /><span><strong>I reviewed the exact command and target path</strong><small>Editing again invalidates this confirmation.</small></span></label>
+      <div class="actions"><button type="button" class="primary">Confirm and send once</button><button type="button">Cancel</button></div>
+    </template>
+
+    <template id="state-offline-rate-limit" data-state="offline-rate-limit">
+      <div class="panel-header"><div><p class="eyebrow">Codex unavailable</p><h1 id="panel-title" tabindex="-1">No suggestion was created</h1></div><span class="status" data-tone="warning">Offline / rate limited</span></div>
+      <div class="notice warning" role="alert">Hyper could not reach Codex, or the account is temporarily rate limited. Your terminal command already failed normally; nothing is queued to run.</div>
+      <div class="actions"><button type="button" class="primary">Retry interpretation</button><button type="button">Dismiss</button></div>
+    </template>
+
+    <template id="state-malformed-response" data-state="malformed-response">
+      <div class="panel-header"><div><p class="eyebrow">Suggestion rejected</p><h1 id="panel-title" tabindex="-1">Codex returned an invalid command plan</h1></div><span class="status" data-tone="danger">Validation failed</span></div>
+      <div class="notice danger" role="alert">The response did not match Hyper's bounded schema. No model text or partial command can be approved.</div>
+      <div class="actions"><button type="button" class="primary">Try again</button><button type="button">Dismiss</button></div>
+    </template>
+
+    <template id="state-stale-context" data-state="stale-context">
+      <div class="panel-header"><div><p class="eyebrow">Approval expired</p><h1 id="panel-title" tabindex="-1">The terminal context changed</h1></div><span class="status" data-tone="warning">Stale</span></div>
+      <div class="notice warning" role="alert">The session, working directory, shell, selected option, or edit revision changed. The old approval cannot be replayed.</div>
+      <div class="actions"><button type="button" class="primary">Interpret the latest failure</button><button type="button">Dismiss</button></div>
+    </template>
+
+    <template id="state-sent" data-state="sent">
+      <div class="panel-header"><div><p class="eyebrow">Sent to terminal</p><h1 id="panel-title" tabindex="-1">The approved command was written once</h1></div><span class="status">Handed back to PowerShell</span></div>
+      <p aria-live="polite">Hyper made one write attempt through the original terminal session. Terminal output is now the source of truth; Hyper does not retry automatically.</p>
+      <div class="actions"><button type="button" class="primary">Return focus to terminal</button></div>
+    </template>
+
+    <script>
+      (() => {
+        const picker = document.getElementById('state-picker');
+        const panel = document.getElementById('nli-panel');
+        const frame = document.querySelector('.shell-frame');
+        const terminalFocus = document.getElementById('terminal-focus');
+        const params = new URLSearchParams(window.location.search);
+        const state = params.get('state') || 'disabled-setup';
+        const fixture = params.get('fixture') || (window.innerWidth <= 480 ? 'narrow' : 'desktop');
+
+        frame.dataset.viewport = fixture;
+
+        const render = (nextState) => {
+          const template = document.getElementById(`state-${nextState}`);
+          if (!template) return;
+          panel.hidden = false;
+          panel.replaceChildren(template.content.cloneNode(true));
+          picker.value = nextState;
+          requestAnimationFrame(() => panel.querySelector('h1')?.focus({preventScroll: true}));
+        };
+
+        picker.addEventListener('change', () => {
+          const url = new URL(window.location.href);
+          url.searchParams.set('state', picker.value);
+          window.history.replaceState({}, '', url);
+          render(picker.value);
+        });
+
+        const closePanel = () => {
+          panel.replaceChildren();
+          panel.hidden = true;
+          terminalFocus.focus({preventScroll: true});
+        };
+
+        panel.addEventListener('submit', (event) => event.preventDefault());
+        panel.addEventListener('keydown', (event) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            closePanel();
+          }
+        });
+        panel.addEventListener('click', (event) => {
+          const button = event.target.closest('button');
+          if (button && /^(Close|Dismiss|Done|Cancel|Cancel sign-in|Not now|Reject all|Return focus to terminal)$/.test(button.textContent.trim())) {
+            closePanel();
+          }
+        });
+
+        render(state);
+        document.documentElement.dataset.ready = 'true';
+      })();
+    </script>
+  </body>
+</html>

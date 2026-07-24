@@ -15,6 +15,13 @@ const toolsMenu = (
         }
       },
       {
+        label: 'Natural Language Setup',
+        accelerator: commands['nli:setup'],
+        click(_menuItem, focusedWindow) {
+          execCommand('nli:setup', focusedWindow);
+        }
+      },
+      {
         label: 'Install Hyper CLI command in PATH',
         click() {
           execCommand('cli:install');

@@ -292,6 +292,14 @@
                     ],
                     "type": "string"
                 },
+                "webLinksOpenMode": {
+                    "description": "Open web links in the operating system browser by default, or opt in to a hardened Hyper popup.",
+                    "enum": [
+                        "internal",
+                        "system"
+                    ],
+                    "type": "string"
+                },
                 "windowSize": {
                     "description": "Initial window size in pixels",
                     "items": [
@@ -332,6 +340,49 @@
                             "description": "if `true` hyper will not check for updates",
                             "type": "boolean"
                         },
+                        "naturalLanguageInterface": {
+                            "description": "Opt-in shell-first natural-language fallback.",
+                            "properties": {
+                                "codexExecutable": {
+                                    "description": "Codex CLI executable or absolute path.",
+                                    "type": "string"
+                                },
+                                "enabled": {
+                                    "description": "Natural-language fallback is disabled unless explicitly enabled.",
+                                    "type": "boolean"
+                                },
+                                "includeGitMetadata": {
+                                    "description": "Include bounded repository metadata only after privacy consent.",
+                                    "type": "boolean"
+                                },
+                                "includeWorkingDirectory": {
+                                    "description": "Include the current working directory only after privacy consent.",
+                                    "type": "boolean"
+                                },
+                                "maxInputChars": {
+                                    "description": "Maximum failed input length sent for interpretation.",
+                                    "type": "number"
+                                },
+                                "maxOptions": {
+                                    "description": "Maximum command choices shown for one interpretation.",
+                                    "type": "number"
+                                },
+                                "requestTimeoutMs": {
+                                    "description": "Maximum provider request duration in milliseconds.",
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "codexExecutable",
+                                "enabled",
+                                "includeGitMetadata",
+                                "includeWorkingDirectory",
+                                "maxInputChars",
+                                "maxOptions",
+                                "requestTimeoutMs"
+                            ],
+                            "type": "object"
+                        },
                         "updateChannel": {
                             "description": "choose either `'stable'` for receiving highly polished, or `'canary'` for less polished but more frequent updates",
                             "enum": [
@@ -342,12 +393,17 @@
                         },
                         "useConpty": {
                             "type": "boolean"
+                        },
+                        "useConptyDll": {
+                            "description": "If `true` (default), use the modern ConPTY bundled with node-pty. Set this\nto `false` to use the version included with Windows instead.",
+                            "type": "boolean"
                         }
                     },
                     "required": [
                         "autoUpdatePlugins",
                         "defaultSSHApp",
                         "disableAutoUpdates",
+                        "naturalLanguageInterface",
                         "updateChannel"
                     ],
                     "type": "object"
@@ -619,6 +675,14 @@
                             ],
                             "type": "string"
                         },
+                        "webLinksOpenMode": {
+                            "description": "Open web links in the operating system browser by default, or opt in to a hardened Hyper popup.",
+                            "enum": [
+                                "internal",
+                                "system"
+                            ],
+                            "type": "string"
+                        },
                         "windowSize": {
                             "description": "Initial window size in pixels",
                             "items": [
@@ -675,6 +739,7 @@
                         "termCSS",
                         "webGLRenderer",
                         "webLinksActivationKey",
+                        "webLinksOpenMode",
                         "workingDirectory"
                     ],
                     "type": "object"

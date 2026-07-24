@@ -9,12 +9,14 @@ import type {TypedEmitter, MainEvents, RendererEvents, FilterNever} from '../typ
 
 export class Server {
   emitter: TypedEmitter<MainEvents>;
+  private readonly eventEmitter: EventEmitter;
   destroyed = false;
   win: BrowserWindow;
   id!: string;
 
   constructor(win: BrowserWindow) {
     this.emitter = new EventEmitter();
+    this.eventEmitter = new EventEmitter();
     this.win = win;
     this.emit = this.emit.bind(this);
 
@@ -39,8 +41,10 @@ export class Server {
     return this.win.webContents;
   }
 
-  ipcListener = <U extends keyof MainEvents>(event: IpcMainEvent, {ev, data}: {ev: U; data: MainEvents[U]}) =>
+  ipcListener = <U extends keyof MainEvents>(event: IpcMainEvent, {ev, data}: {ev: U; data: MainEvents[U]}) => {
     this.emitter.emit(ev, data);
+    this.eventEmitter.emit(ev, event, data);
+  };
 
   on = <U extends keyof MainEvents>(ev: U, fn: (arg0: MainEvents[U]) => void) => {
     this.emitter.on(ev, fn);
@@ -49,6 +53,11 @@ export class Server {
 
   once = <U extends keyof MainEvents>(ev: U, fn: (arg0: MainEvents[U]) => void) => {
     this.emitter.once(ev, fn);
+    return this;
+  };
+
+  onWithEvent = <U extends keyof MainEvents>(ev: U, fn: (event: IpcMainEvent, data: MainEvents[U]) => void) => {
+    this.eventEmitter.on(ev, fn);
     return this;
   };
 
@@ -66,6 +75,7 @@ export class Server {
 
   destroy() {
     this.emitter.removeAllListeners();
+    this.eventEmitter.removeAllListeners();
     this.wc.removeAllListeners();
     if (this.id) {
       ipcMain.removeListener(this.id, this.ipcListener);

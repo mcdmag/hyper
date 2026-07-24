@@ -1,0 +1,44 @@
+{
+  "sessionUid": "visual-session",
+  "shell": "pwsh.exe",
+  "enabled": true,
+  "supportedShell": true,
+  "active": true,
+  "session": {
+    "setupOpen": false,
+    "unsupportedDismissed": false,
+    "display": {
+      "status": "review",
+      "sessionUid": "visual-session",
+      "attemptId": "visual-attempt",
+      "planId": "visual-plan",
+      "summary": "Stage current changes, create a commit, push the branch, and open a pull request targeting dev.",
+      "editRevision": 0,
+      "options": [
+        {
+          "optionId": "visual-option",
+          "label": "Commit all changes and open a PR",
+          "rationale": "",
+          "assumptions": [],
+          "purpose": "Publish the branch and open a pull request.",
+          "commandPreview": "git add -A; git commit; git push -u origin HEAD; gh pr create --base dev",
+          "risk": {
+            "level": "medium",
+            "reasons": ["Modifies Git history and publishes a branch. Review each command before approval."],
+            "requiresSecondConfirmation": false
+          }
+        }
+      ]
+    },
+    "selectedOptionId": "visual-option",
+    "editText": "git add -A; git commit; git push -u origin HEAD; gh pr create --base dev",
+    "editing": false,
+    "highRiskArmed": false,
+    "signingIn": false,
+    "auth": {"status": "signed-in"}
+  },
+  "backgroundColor": "#000000",
+  "foregroundColor": "#ffffff",
+  "borderColor": "#333333",
+  "uiFontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif"
+}

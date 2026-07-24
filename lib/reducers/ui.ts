@@ -280,7 +280,10 @@ const reducer: IUiReducer = (state = initial, action) => {
 
             const buildNumber = parseInt(release().split('.').at(-1) || '0', 10);
             if (isWindows && !Number.isNaN(buildNumber) && buildNumber > 0) {
-              const useConpty = typeof config.useConpty === 'boolean' ? config.useConpty : buildNumber >= 18309;
+              const useConpty =
+                typeof config.useConpty === 'boolean'
+                  ? config.useConpty
+                  : config.useConptyDll !== false || buildNumber >= 18309;
               ret.windowsPty = {
                 backend: useConpty ? 'conpty' : 'winpty',
                 buildNumber
